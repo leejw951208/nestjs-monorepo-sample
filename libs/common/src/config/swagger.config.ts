@@ -10,6 +10,7 @@ export function setupSwagger(app: INestApplication): void {
     const description = ``
 
     const swaggerUri = `${configService.get<string>('API_PREFIX')}/${configService.get<string>('API_VERSIONING')}/${configService.get<string>('SWAGGER_URI')}`
+    console.log(swaggerUri)
     const documentConfig = new DocumentBuilder()
         .setTitle(title)
         .setDescription(description)

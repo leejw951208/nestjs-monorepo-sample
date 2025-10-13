@@ -1,5 +1,5 @@
 import { JwtPayload } from '@libs/common/decorator/jwt-payload.decorator'
-import { TokenPayload } from '@libs/common/utils/jwt.util'
+import { JwtPayloadType } from '@libs/common/utils/jwt.util'
 import { Body, Controller, Get, Patch } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { UserResDto } from './dto/user-res.dto'
@@ -19,7 +19,7 @@ export class UserController {
     })
     @ApiOkResponse({ type: UserResDto })
     @Get('me')
-    async findMe(@JwtPayload() payload: TokenPayload): Promise<UserResDto> {
+    async findMe(@JwtPayload() payload: JwtPayloadType): Promise<UserResDto> {
         return this.service.findMe(payload)
     }
 
@@ -30,7 +30,7 @@ export class UserController {
     @ApiBody({ type: UserUpdateDto })
     @ApiOkResponse()
     @Patch('me')
-    async updateMe(@JwtPayload() payload: TokenPayload, @Body() reqDto: UserUpdateDto): Promise<void> {
+    async updateMe(@JwtPayload() payload: JwtPayloadType, @Body() reqDto: UserUpdateDto): Promise<void> {
         return this.service.updateMe(payload, reqDto)
     }
 

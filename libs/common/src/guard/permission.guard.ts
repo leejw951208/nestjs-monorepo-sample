@@ -1,6 +1,6 @@
 import { BaseException } from '@libs/common/exception/base.exception'
 import { AUTH_ERROR } from '@libs/common/exception/error.code'
-import { TokenPayload } from '@libs/common/utils/jwt.util'
+import { JwtPayload } from '@libs/common/utils/jwt.util'
 import { PrismaService } from '@libs/prisma/prisma.service'
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'

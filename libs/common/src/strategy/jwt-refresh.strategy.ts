@@ -1,4 +1,3 @@
-import { TokenPayload } from '@libs/common/utils/jwt.util'
 import { CACHE_MANAGER } from '@nestjs/cache-manager'
 import { Inject, Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
@@ -9,6 +8,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt'
 import { BaseException } from '../exception/base.exception'
 import { AUTH_ERROR } from '../exception/error.code'
 import { BcryptUtil } from '../utils/bcrypt.util'
+import { JwtPayloadType } from '../utils/jwt.util'
 
 /**
  * JWT 인증 전략 - passport-jwt를 사용한 JWT 토큰 기반 인증
@@ -47,7 +47,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
         })
     }
 
-    async validate(req: Request, payload: TokenPayload) {
+    async validate(req: Request, payload: JwtPayloadType) {
         // 토큰 발급자 검증
         if (payload.issuer !== 'monorepo' || !payload.jti) throw new BaseException(AUTH_ERROR.INVALID_ACCESS_TOKEN, this.constructor.name)
 

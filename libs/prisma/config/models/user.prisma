@@ -15,6 +15,7 @@ model User {
     deletedBy Int?       @map("deleted_by")
 
     userRoles UserRole[]
+    posts     Post[]
 
     @@map("user")
     @@schema("base")

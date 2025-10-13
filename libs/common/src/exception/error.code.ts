@@ -1,4 +1,4 @@
-import { AuthErrorType, BadRequestType, NotFoundType, SeedErrorType, ServerErrorType, UserErrorType } from './error.type'
+import { AuthErrorType, BadRequestType, NotFoundType, PostErrorType, SeedErrorType, ServerErrorType, UserErrorType } from './error.type'
 
 export interface IErrorCodes {
     errorCode: string
@@ -78,6 +78,21 @@ export const USER_ERROR: {
         status: 400,
         errorCode: 'USER_ERROR_003',
         message: '이미 존재하는 이메일입니다.'
+    }
+}
+
+export const POST_ERROR: {
+    [key in PostErrorType]: IErrorCodes
+} = {
+    NOT_FOUND: {
+        status: 404,
+        errorCode: 'POST_ERROR_001',
+        message: '게시글을 찾을 수 없습니다.'
+    },
+    FORBIDDEN: {
+        status: 403,
+        errorCode: 'POST_ERROR_002',
+        message: '게시글에 대한 권한이 없습니다.'
     }
 }
 

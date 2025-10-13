@@ -27,3 +27,11 @@ enum TokenType {
 
     @@schema("public")
 }
+
+enum PostStatus {
+    DRAFT
+    PUBLISHED
+    HIDDEN
+
+    @@schema("public")
+}

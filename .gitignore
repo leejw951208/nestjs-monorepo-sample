@@ -38,7 +38,7 @@ lerna-debug.log*
 # dotenv environment variable files
 envs/*
 !envs/.env.example
-apps/api/envs/*
+apps/user-app/envs/*
 !apps/api/envs/.env.example
 apps/admin/envs/*
 !apps/admin/envs/.env.example

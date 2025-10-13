@@ -12,6 +12,7 @@ import { WinstonModule } from 'nest-winston'
 import { ClsModule } from 'nestjs-cls'
 import * as path from 'path'
 import { AuthModule } from './auth/auth.module'
+import { PostModule } from './post/post.module'
 import { UserAppController } from './user-app.controller'
 import { UserAppService } from './user-app.service'
 import { UserModule } from './user/user.module'
@@ -22,7 +23,7 @@ import { UserModule } from './user/user.module'
             isGlobal: true,
             envFilePath: [
                 path.resolve(process.cwd(), `./envs/.env.${process.env.NODE_ENV}`), // 공통
-                path.resolve(process.cwd(), `./apps/api/envs/.env.${process.env.NODE_ENV}`) // 앱 전용
+                path.resolve(process.cwd(), `./apps/user-app/envs/.env.${process.env.NODE_ENV}`) // 앱 전용
             ],
             load: []
         }),
@@ -40,7 +41,8 @@ import { UserModule } from './user/user.module'
         WinstonModule.forRootAsync(winstonModuleAsyncOptions),
         PrismaModule,
         AuthModule,
-        UserModule
+        UserModule,
+        PostModule
     ],
     controllers: [UserAppController],
     providers: [UserAppService, { provide: APP_GUARD, useClass: JwtAccessGuard }]

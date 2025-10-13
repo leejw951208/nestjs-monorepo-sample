@@ -1,6 +1,4 @@
-import { BaseException } from '@libs/common/exception/base.exception'
-import { AUTH_ERROR } from '@libs/common/exception/error.code'
-import { TokenPayload } from '@libs/common/utils/jwt.util'
+import { JwtPayloadType } from '@libs/common/utils/jwt.util'
 import { Injectable, NestMiddleware } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { NextFunction, Request, Response } from 'express'
@@ -20,7 +18,7 @@ export class CustomClsMiddleware implements NestMiddleware {
             const authHeader = req.headers.authorization
             if (authHeader && authHeader.startsWith('Bearer ')) {
                 const token = authHeader.slice(7)
-                const decodedPayload = this.jwtService.decode<TokenPayload>(token)
+                const decodedPayload = this.jwtService.decode<JwtPayloadType>(token)
                 if (decodedPayload) {
                     this.cls.set('id', decodedPayload.id ?? 0)
                     this.cls.set('aud', decodedPayload.aud ?? null)

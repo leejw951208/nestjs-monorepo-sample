@@ -14,3 +14,4 @@ export type AuthErrorType =
     | 'PASSWORD_NOT_MATCHED'
     | 'RESOURCE_ACCESS_DENIED'
 export type UserErrorType = typeof NotFoundType | 'ALREADY_EXISTS_LOGIN_ID' | 'ALREADY_EXISTS_EMAIL'
+export type PostErrorType = typeof NotFoundType | 'FORBIDDEN'
