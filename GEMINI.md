@@ -1,6 +1,4 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to GEMINI when working with code in this repository.
 
 ## Project Overview
 
@@ -32,9 +30,6 @@ yarn start:debug
 ```bash
 # Generate Prisma client
 yarn db:generate
-
-# Generate typed SQL
-yarn db:generate:typed-sql
 
 # Run migrations
 yarn db:migrate

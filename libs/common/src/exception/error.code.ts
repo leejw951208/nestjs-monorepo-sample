@@ -124,5 +124,10 @@ export const SERVER_ERROR: {
         status: 500,
         errorCode: 'SERVER_ERROR_001',
         message: '요청을 처리하던 중 오류가 발생 하였습니다'
+    },
+    CONFIG_VALIDATION_ERROR: {
+        status: 500,
+        errorCode: 'SERVER_ERROR_002',
+        message: '환경 변수 검증 중 오류가 발생 하였습니다.'
     }
 }

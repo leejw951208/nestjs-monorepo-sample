@@ -3,13 +3,15 @@ import { ConfigService } from '@nestjs/config'
 import { DocumentBuilder, SwaggerCustomOptions, SwaggerDocumentOptions, SwaggerModule } from '@nestjs/swagger'
 
 export function setupSwagger(app: INestApplication): void {
-    const configService = app.get(ConfigService)
+    const config = app.get(ConfigService)
 
-    const title = `${configService.get<string>('APP_NAME')} API Documents`
-    const version = `${configService.get<string>('APP_VERSION')}`
+    const title = `${config.get<string>('APP_NAME')} API Documents`
+    const version = `${config.get<string>('APP_VERSION')}`
     const description = ``
 
-    const swaggerUri = `${configService.get<string>('API_PREFIX')}/${configService.get<string>('API_VERSIONING')}/${configService.get<string>('SWAGGER_URI')}`
+    const appPrefix = config.get<string>('APP_PREFIX')
+    const apiPrefix = appPrefix ? `${appPrefix}/api` : 'user/api'
+    const swaggerUri = `${apiPrefix}/${config.get<string>('API_VERSION')}/docs`
     console.log(swaggerUri)
     const documentConfig = new DocumentBuilder()
         .setTitle(title)

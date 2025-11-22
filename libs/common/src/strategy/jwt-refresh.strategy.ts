@@ -8,7 +8,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt'
 import { BaseException } from '../exception/base.exception'
 import { AUTH_ERROR } from '../exception/error.code'
 import { BcryptUtil } from '../utils/bcrypt.util'
-import { JwtPayloadType } from '../utils/jwt.util'
+import { JwtPayload } from '../utils/jwt.util'
 
 /**
  * JWT 인증 전략 - passport-jwt를 사용한 JWT 토큰 기반 인증
@@ -47,7 +47,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
         })
     }
 
-    async validate(req: Request, payload: JwtPayloadType) {
+    async validate(req: Request, payload: JwtPayload) {
         // 토큰 발급자 검증
         if (payload.issuer !== 'monorepo' || !payload.jti) throw new BaseException(AUTH_ERROR.INVALID_ACCESS_TOKEN, this.constructor.name)
 

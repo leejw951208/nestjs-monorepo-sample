@@ -1,0 +1,34 @@
+import { envSchema } from '@libs/common/config/env/env.schema'
+import { BaseException } from '@libs/common/exception/base.exception'
+import { SERVER_ERROR } from '@libs/common/exception/error.code'
+import Joi from 'joi'
+
+export const validateEnvSchema = envSchema.concat(
+    Joi.object({
+        API_PREFIX: Joi.string().required(),
+        API_VERSION: Joi.string().required(),
+        APP_NAME: Joi.string().required(),
+        APP_VERSION: Joi.string().required(),
+        PORT: Joi.string().required()
+    })
+)
+
+export const validateAdminEnv = (config: Record<string, unknown>) => {
+    const { error, value } = validateEnvSchema.validate(config, {
+        allowUnknown: true, // Joi 스키마에 정의되지 않은 값을 검증대상에서 제외
+        stripUnknown: true, // .env 파일에 정의한 값만 ConfigService로 접근할 수 있도록 하는 옵션
+        abortEarly: false // 검증 실패 시 모든 에러 메시지를 반환
+    })
+
+    if (error) {
+        // common 의 환경 변수 검증 실패 검증 후 admin 의 환경 변수 검증 실패 검증
+        const commonEnvKeys = Object.keys(envSchema.describe().keys ?? {})
+        if (error.details.some((detail) => typeof detail.path[0] === 'string' && commonEnvKeys.includes(detail.path[0]))) {
+            throw new BaseException(SERVER_ERROR.CONFIG_VALIDATION_ERROR, `[Common] Config validation error: ${error.message}`, 'error')
+        } else {
+            throw new BaseException(SERVER_ERROR.CONFIG_VALIDATION_ERROR, `[Admin] Config validation error: ${error.message}`, 'error')
+        }
+    }
+
+    return value
+}

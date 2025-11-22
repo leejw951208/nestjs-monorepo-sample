@@ -3,7 +3,7 @@ const NotFoundType = 'NOT_FOUND'
 export type SeedErrorType = typeof GeneralType
 export type BadRequestType = typeof GeneralType
 export type NotFoundType = typeof GeneralType
-export type ServerErrorType = typeof GeneralType
+export type ServerErrorType = typeof GeneralType | 'CONFIG_VALIDATION_ERROR'
 export type AuthErrorType =
     | 'MISSING_ACCESS_TOKEN'
     | 'MISSING_REFRESH_TOKEN'

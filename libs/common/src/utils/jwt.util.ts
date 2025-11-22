@@ -7,12 +7,12 @@ import { Admin, User } from '@prisma/client'
 
 type Aud = 'admin' | 'api'
 
-export type JwtPayloadType = {
-    id?: number // pk
-    type?: 'ac' | 're' // 토큰 타입
-    aud?: Aud // 토큰 수신자
-    jti?: string // 토큰 고유 값
-    issuer?: string // 토큰 발급자
+export interface JwtPayload {
+    userId: number // pk
+    type: 'ac' | 're' // 토큰 타입
+    aud: Aud // 토큰 수신자
+    jti: string // 토큰 고유 값
+    issuer: string // 토큰 발급자
 }
 
 @Injectable()
@@ -40,24 +40,24 @@ export class JwtUtil {
         return await this.signToken(payload, this.refreshTokenExpiresIn)
     }
 
-    createTokenPayload(model: User | Admin, aud: Aud, type: 'ac' | 're', jti: string): JwtPayloadType {
+    createTokenPayload(model: User | Admin, aud: Aud, type: 'ac' | 're', jti: string): JwtPayload {
         return {
-            id: model.id,
+            userId: model.id,
             type,
             aud,
             jti,
             issuer: 'monorepo'
-        } as JwtPayloadType
+        } as JwtPayload
     }
 
-    async signToken(payload: JwtPayloadType, expiresIn: string): Promise<string> {
+    async signToken(payload: JwtPayload, expiresIn: string): Promise<string> {
         return await this.jwtService.signAsync(payload, {
             secret: this.jwtSecretKey,
             expiresIn
         })
     }
 
-    async verify(token: string, type: 'ac' | 're'): Promise<JwtPayloadType> {
+    async verify(token: string, type: 'ac' | 're'): Promise<JwtPayload> {
         const payload = await this.jwtService.verifyAsync(token, {
             secret: this.jwtSecretKey
         })

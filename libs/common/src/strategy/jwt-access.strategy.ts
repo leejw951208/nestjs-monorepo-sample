@@ -1,4 +1,4 @@
-import { JwtPayloadType } from '@libs/common/utils/jwt.util'
+import { JwtPayload } from '@libs/common/utils/jwt.util'
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { PassportStrategy } from '@nestjs/passport'
@@ -33,7 +33,7 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt-access') 
         })
     }
 
-    async validate(payload: JwtPayloadType) {
+    async validate(payload: JwtPayload) {
         // 토큰 발급자 검증
         if (payload.issuer !== 'monorepo') throw new BaseException(AUTH_ERROR.INVALID_ACCESS_TOKEN, this.constructor.name)
         return payload

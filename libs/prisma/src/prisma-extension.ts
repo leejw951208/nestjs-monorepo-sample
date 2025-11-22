@@ -1,3 +1,4 @@
+import { ClsUtil } from '@libs/common/utils/cls.util'
 import { Prisma } from '@prisma/client'
 import { ClsService } from 'nestjs-cls'
 
@@ -28,43 +29,43 @@ export const findExtension = Prisma.defineExtension({
     }
 })
 
-export const createExtension = (cls: ClsService) =>
+export const createExtension = (cls: ClsUtil) =>
     Prisma.defineExtension({
         query: {
             $allModels: {
                 async create({ args, query }) {
-                    args.data = { ...(args.data ?? {}), createdBy: cls.get('id'), isDeleted: false }
+                    args.data = { ...(args.data ?? {}), createdBy: cls.getUserId(), isDeleted: false }
                     return query(args)
                 },
                 async createMany({ args, query }) {
                     args.data = Array.isArray(args.data)
-                        ? args.data.map((d: any) => ({ ...(d ?? {}), createdBy: cls.get('id'), isDeleted: false }))
-                        : { ...(args.data ?? {}), createdBy: cls.get('id'), isDeleted: false }
+                        ? args.data.map((d: any) => ({ ...(d ?? {}), createdBy: cls.getUserId(), isDeleted: false }))
+                        : { ...(args.data ?? {}), createdBy: cls.getUserId(), isDeleted: false }
                     return query(args)
                 }
             }
         }
     })
 
-export const updateExtension = (cls: ClsService) =>
+export const updateExtension = (cls: ClsUtil) =>
     Prisma.defineExtension({
         query: {
             $allModels: {
                 async update(this: object, { args, query }: { args: any; query: any }) {
-                    args.data = { ...(args.data ?? {}), updatedBy: cls.get('id'), updatedAt: new Date() }
+                    args.data = { ...(args.data ?? {}), updatedBy: cls.getUserId(), updatedAt: new Date() }
                     return query(args)
                 },
                 async updateMany(this: object, { args, query }: { args: any; query: any }) {
                     args.data = Array.isArray(args.data)
-                        ? args.data.map((d: any) => ({ ...(d ?? {}), updatedBy: cls.get('id'), updatedAt: new Date() }))
-                        : { ...(args.data ?? {}), updatedBy: cls.get('id'), updatedAt: new Date() }
+                        ? args.data.map((d: any) => ({ ...(d ?? {}), updatedBy: cls.getUserId(), updatedAt: new Date() }))
+                        : { ...(args.data ?? {}), updatedBy: cls.getUserId(), updatedAt: new Date() }
                     return query(args)
                 }
             }
         }
     })
 
-export const softDeleteExtension = (cls: ClsService) =>
+export const softDeleteExtension = (cls: ClsUtil) =>
     Prisma.defineExtension({
         model: {
             $allModels: {
@@ -72,7 +73,7 @@ export const softDeleteExtension = (cls: ClsService) =>
                     const ctx = Prisma.getExtensionContext(this) as any
                     return await ctx.update({
                         ...args,
-                        data: { ...(args.data ?? {}), isDeleted: true, deletedBy: cls.get('id'), deletedAt: new Date() }
+                        data: { ...(args.data ?? {}), isDeleted: true, deletedBy: cls.getUserId(), deletedAt: new Date() }
                     })
                 },
                 async softDeleteMany<T>(
@@ -82,7 +83,7 @@ export const softDeleteExtension = (cls: ClsService) =>
                     const ctx = Prisma.getExtensionContext(this) as any
                     return await ctx.updateMany({
                         ...args,
-                        data: { ...(args.data ?? {}), isDeleted: true, deletedBy: cls.get('id'), deletedAt: new Date() }
+                        data: { ...(args.data ?? {}), isDeleted: true, deletedBy: cls.getUserId(), deletedAt: new Date() }
                     })
                 }
             }

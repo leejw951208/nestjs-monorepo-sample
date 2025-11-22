@@ -7,22 +7,22 @@
     },
     "monorepo": true,
     "projects": {
-        "admin-app": {
+        "admin": {
             "type": "application",
-            "root": "apps/admin-app",
+            "root": "apps/admin",
             "entryFile": "main",
-            "sourceRoot": "apps/admin-app/src",
+            "sourceRoot": "apps/admin/src",
             "compilerOptions": {
-                "tsConfigPath": "apps/admin-app/tsconfig.app.json"
+                "tsConfigPath": "apps/admin/tsconfig.app.json"
             }
         },
-        "user-app": {
+        "user": {
             "type": "application",
-            "root": "apps/user-app",
+            "root": "apps/user",
             "entryFile": "main",
-            "sourceRoot": "apps/user-app/src",
+            "sourceRoot": "apps/user/src",
             "compilerOptions": {
-                "tsConfigPath": "apps/user-app/tsconfig.app.json"
+                "tsConfigPath": "apps/user/tsconfig.app.json"
             }
         },
         "common": {

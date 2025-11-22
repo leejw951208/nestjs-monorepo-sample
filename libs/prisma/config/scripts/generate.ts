@@ -5,10 +5,16 @@ import { stdin, stdout } from 'node:process'
 import { createInterface } from 'node:readline/promises'
 
 async function main(): Promise<void> {
-    // 1) 사용자에게 환경(prompt)과 파일명(prompt) 입력받기
-    const rl = createInterface({ input: stdin, output: stdout })
-    const env = (await rl.question('환경 (local/dev): ')).trim()
-    rl.close()
+    // 1) NODE_ENV에서 환경을 읽거나 사용자에게 입력받기
+    let env = process.env.NODE_ENV?.trim()
+
+    if (!env) {
+        const rl = createInterface({ input: stdin, output: stdout })
+        env = (await rl.question('환경 (local/dev/test/prod): ')).trim()
+        rl.close()
+    } else {
+        console.log(`NODE_ENV에서 감지된 환경: ${env}`)
+    }
 
     // 2) .env 파일 로드
     const envFilePath = resolve(process.cwd(), `./envs/.env.${env}`)

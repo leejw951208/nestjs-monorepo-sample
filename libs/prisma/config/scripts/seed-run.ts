@@ -6,11 +6,16 @@ import readline from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
 
 async function run() {
-    const rl = readline.createInterface({ input: stdin, output: stdout })
-    const inputEnv = (await rl.question('환경 (local/dev/prod): ')).trim()
-    rl.close()
+    let env = process.env.NODE_ENV?.trim()
 
-    const env = inputEnv || process.env.NODE_ENV || 'local'
+    if (!env) {
+        const rl = readline.createInterface({ input: stdin, output: stdout })
+        env = (await rl.question('환경 (local/dev/test/prod): ')).trim()
+        rl.close()
+    } else {
+        console.log(`NODE_ENV에서 감지된 환경: ${env}`)
+    }
+
     const envFilePath = path.resolve(process.cwd(), `./envs/.env.${env}`)
     dotenv.config({ path: envFilePath })
 

@@ -1,7 +1,6 @@
 import { BaseException } from '@libs/common/exception/base.exception'
 import { AUTH_ERROR } from '@libs/common/exception/error.code'
-import { JwtPayload } from '@libs/common/utils/jwt.util'
-import { PrismaService } from '@libs/prisma/prisma.service'
+import { ExtendedPrismaClient } from '@libs/prisma/prisma.factory'
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { ClsService } from 'nestjs-cls'
@@ -11,11 +10,11 @@ export class PermissionGuard implements CanActivate {
     constructor(
         private readonly reflector: Reflector,
         private readonly cls: ClsService,
-        private readonly prisma: PrismaService
+        private readonly prisma: ExtendedPrismaClient
     ) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
-        const id = this.cls.get('id')
+        const id = this.cls.get('userId')
         const aud = this.cls.get('aud')
         if (!id || !aud) throw new BaseException(AUTH_ERROR.RESOURCE_ACCESS_DENIED, this.constructor.name)
 
@@ -28,7 +27,7 @@ export class PermissionGuard implements CanActivate {
                 ? { rolePermissions: { some: { role: { adminRoles: { some: { adminId: id } } } } } } // Admin용
                 : { rolePermissions: { some: { role: { userRoles: { some: { userId: id } } } } } } // User용
 
-        const owned = await this.prisma.client.permission.findFirst({
+        const owned = await this.prisma.permission.findFirst({
             where: {
                 scope: permission.scope,
                 action: permission.action,
