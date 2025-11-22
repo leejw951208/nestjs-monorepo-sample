@@ -1,6 +1,6 @@
 import { CurrentUser } from '@libs/common/decorator/jwt-payload.decorator'
 import { JwtPayload } from '@libs/common/utils/jwt.util'
-import { Body, Controller, Delete, Get, Patch } from '@nestjs/common'
+import { Body, Controller, Get, Patch } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { UserResDto } from './dto/user-res.dto'
 import { UserUpdateDto } from './dto/user-update.dto'
@@ -52,14 +52,4 @@ export class UserController {
     // async findUsersWithCursor(@Query() query: UserCursorPageReqDto): Promise<CursorPageResDto<UserResDto>> {
     //     return this.service.findUsersWithCursor(query)
     // }
-
-    @ApiOperation({
-        summary: '회원 탈퇴',
-        description: '회원 탈퇴'
-    })
-    @ApiOkResponse()
-    @Delete('me')
-    async deleteMe(@CurrentUser() payload: JwtPayload): Promise<void> {
-        return this.service.softDeleteMe(payload)
-    }
 }
