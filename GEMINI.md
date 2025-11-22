@@ -101,7 +101,7 @@ The project uses NestJS CLI monorepo mode with two applications and three shared
 
 - `libs/common/` - Common utilities, guards, decorators, middleware, exceptions
 - `libs/models/` - Domain models (user, token, permission, base entities)
-- `libs/prisma/` - Prisma client and database management
+- `libs/prisma/` - Manages the Prisma client. It uses a factory pattern (`extendedPrismaClient` in `prisma.factory.ts`) to create a single, extended Prisma client instance. This instance is provided globally via `PrismaModule` using the `PrismaClient` token. The extensions automatically handle soft deletes and add audit fields (`createdBy`, `updatedBy`) by using `ClsUtil`.
 
 ### Path Aliases
 
@@ -168,7 +168,7 @@ Each app can also have app-specific environment files in `apps/{app-name}/envs/`
 ### Middleware Stack
 
 1. **LoggerMiddleware** - Request/response logging
-2. **CustomClsMiddleware** - Continuation-local storage for request context
+2. **CustomClsMiddleware** - Populates the Continuation-Local Storage (CLS) with request-specific context (e.g., `userId`, `clientIp`).
 3. **cookieParser** - Parse cookies (user only)
 
 ### Common Library Components
@@ -191,6 +191,7 @@ Each app can also have app-specific environment files in `apps/{app-name}/envs/`
 - `bcrypt.util.ts` - Password hashing
 - `jwt.util.ts` - JWT token operations
 - `async.util.ts` - Async helpers
+- `cls.util.ts` - A type-safe wrapper around `nestjs-cls`. Provides methods like `getUserId()` to securely access request-scoped context values, which are set by `CustomClsMiddleware`. This utility should be used instead of accessing `ClsService` directly.
 
 **DTOs:**
 
