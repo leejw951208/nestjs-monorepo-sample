@@ -1,9 +1,10 @@
 import { BaseException } from '@libs/common/exception/base.exception'
 import { AUTH_ERROR } from '@libs/common/exception/error.code'
-import { Injectable } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
+import { Inject, Injectable } from '@nestjs/common'
+import { ConfigType } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import { Admin, User } from '@prisma/client'
+import commonEnvConfig from '../config/env/common-env.config'
 
 type Aud = 'admin' | 'api'
 
@@ -23,11 +24,11 @@ export class JwtUtil {
 
     constructor(
         private readonly jwtService: JwtService,
-        private readonly configService: ConfigService
+        @Inject(commonEnvConfig.KEY) private readonly commonEnv: ConfigType<typeof commonEnvConfig>
     ) {
-        this.accessTokenExpiresIn = this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '1h'
-        this.refreshTokenExpiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') ?? '7d'
-        this.jwtSecretKey = this.configService.get<string>('JWT_SECRET_KEY')!
+        this.accessTokenExpiresIn = this.commonEnv.jwtAccessExpiresIn
+        this.refreshTokenExpiresIn = this.commonEnv.jwtRefreshExpiresIn
+        this.jwtSecretKey = this.commonEnv.jwtSecretKey
     }
 
     async createAccessToken(model: User | Admin, aud: Aud, jti: string): Promise<string> {

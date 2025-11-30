@@ -11,10 +11,9 @@ import { SigninRequestDto } from './dto/signin-request.dto'
 import { SigninResponseDto } from './dto/signin-response.dto'
 import { SignupRequestDto } from './dto/signup-request.dto'
 
-const path = 'auth'
-@ApiTags(path)
+@ApiTags('auth')
 @ApiBearerAuth('JWT-Auth')
-@Controller({ path })
+@Controller({ version: '1' })
 export class AuthController {
     constructor(private readonly service: AuthService) {}
 

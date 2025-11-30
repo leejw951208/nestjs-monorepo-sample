@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { UserService } from './user.service'
-import { ExtendedPrismaClient } from '@libs/prisma/prisma.factory'
+import { ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { CACHE_MANAGER } from '@nestjs/cache-manager'
-import { PrismaClient, UserStatus } from '@prisma/client'
-import userEnvConfig from '../config/env/user-env.config'
+import { UserStatus } from '@prisma/client'
+import userEnvConfig from '../../config/env/user-env.config'
 import { ConfigType } from '@nestjs/config'
 import { JwtPayload } from '@libs/common/utils/jwt.util'
 import { UserResDto } from './dto/user-res.dto'
@@ -32,14 +32,14 @@ describe('UserService', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 UserService,
-                { provide: PrismaClient, useValue: mockPrisma },
+                { provide: PRISMA_CLIENT, useValue: mockPrisma },
                 { provide: CACHE_MANAGER, useValue: mockCacheManager },
                 { provide: userEnvConfig.KEY, useValue: mockUserEnvConfig }
             ]
         }).compile()
 
         service = module.get<UserService>(UserService)
-        prisma = module.get<ExtendedPrismaClient>(PrismaClient)
+        prisma = module.get<ExtendedPrismaClient>(PRISMA_CLIENT)
     })
 
     afterEach(() => {

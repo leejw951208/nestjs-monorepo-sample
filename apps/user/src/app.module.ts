@@ -8,16 +8,31 @@ import { PrismaModule } from '@libs/prisma/prisma.module'
 import { CacheModule } from '@nestjs/cache-manager'
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
-import { APP_GUARD } from '@nestjs/core'
+import { APP_GUARD, RouterModule } from '@nestjs/core'
 import { WinstonModule } from 'nest-winston'
 import { ClsModule } from 'nestjs-cls'
 import * as path from 'path'
-import { AppController } from './app.controller'
-import { AuthModule } from './auth/auth.module'
+
 import userEnvConfig from './config/env/user-env.config'
 import { validateUserEnv } from './config/env/user-env.validator'
-import { PostModule } from './post/post.module'
-import { UserModule } from './user/user.module'
+import { PostModule } from './v1/post/post.module'
+import { UserModule } from './v1/user/user.module'
+import { AuthModule } from './v1/auth/auth.module'
+
+const childrenRoutes = [
+    {
+        path: '',
+        module: UserModule
+    },
+    {
+        path: 'auth',
+        module: AuthModule
+    },
+    {
+        path: 'post',
+        module: PostModule
+    }
+]
 
 @Module({
     imports: [
@@ -41,13 +56,19 @@ import { UserModule } from './user/user.module'
             global: true,
             middleware: { mount: false }
         }),
+        RouterModule.register([
+            {
+                path: 'user',
+                module: AppModule,
+                children: childrenRoutes
+            }
+        ]),
         WinstonModule.forRootAsync(winstonModuleAsyncOptions),
         PrismaModule,
         AuthModule,
         UserModule,
         PostModule
     ],
-    controllers: [AppController],
     providers: [{ provide: APP_GUARD, useClass: JwtAccessGuard }]
 })
 export class AppModule implements NestModule {

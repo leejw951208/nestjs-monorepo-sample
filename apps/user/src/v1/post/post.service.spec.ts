@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { PostService } from './post.service'
-import { ExtendedPrismaClient } from '@libs/prisma/prisma.factory'
-import { PrismaClient, PostStatus } from '@prisma/client'
+import { ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
+import { PostStatus } from '@prisma/client'
 import { JwtPayload } from '@libs/common/utils/jwt.util'
 import { PostCreateDto } from './dto/post-create.dto'
 import { PostResDto } from './dto/post-res.dto'
@@ -28,11 +28,11 @@ describe('PostService', () => {
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [PostService, { provide: PrismaClient, useValue: mockPrisma }]
+            providers: [PostService, { provide: PRISMA_CLIENT, useValue: mockPrisma }]
         }).compile()
 
         service = module.get<PostService>(PostService)
-        prisma = module.get<ExtendedPrismaClient>(PrismaClient)
+        prisma = module.get<ExtendedPrismaClient>(PRISMA_CLIENT)
     })
 
     afterEach(() => {

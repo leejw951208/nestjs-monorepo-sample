@@ -1,11 +1,9 @@
 {
     "extends": "../../tsconfig.json",
     "compilerOptions": {
-        "composite": false,
         "declaration": false,
-        "rootDir": "src",
         "outDir": "../../dist/apps/admin"
     },
-    "include": ["src"],
+    "include": ["src/**/*"],
     "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
 }

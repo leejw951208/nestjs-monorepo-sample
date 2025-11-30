@@ -8,7 +8,7 @@ import { UserService } from './user.service'
 
 @ApiTags('user')
 @ApiBearerAuth('JWT-Auth')
-@Controller()
+@Controller({ version: '1' })
 export class UserController {
     constructor(private readonly service: UserService) {}
 

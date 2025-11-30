@@ -2,9 +2,9 @@ import { OffsetPaginationResDto } from '@libs/common/dto/pagination-res.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { POST_ERROR } from '@libs/common/exception/error.code'
 import { JwtPayload } from '@libs/common/utils/jwt.util'
-import { ExtendedPrismaClient } from '@libs/prisma/prisma.factory'
+import { ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { Inject, Injectable } from '@nestjs/common'
-import { PostStatus, PrismaClient } from '@prisma/client'
+import { PostStatus } from '@prisma/client'
 import { plainToInstance } from 'class-transformer'
 import { PostCreateDto } from './dto/post-create.dto'
 import { PostOffsetPaginationReqDto } from './dto/post-offset-pagination-req.dto'
@@ -13,7 +13,7 @@ import { PostUpdateDto } from './dto/post-update.dto'
 
 @Injectable()
 export class PostService {
-    constructor(@Inject(PrismaClient) private readonly prisma: ExtendedPrismaClient) {}
+    constructor(@Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient) {}
 
     async createPost(payload: JwtPayload, reqDto: PostCreateDto): Promise<PostResDto> {
         const userId = payload.id!

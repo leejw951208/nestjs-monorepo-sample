@@ -11,10 +11,9 @@ import { PostResDto } from './dto/post-res.dto'
 import { PostUpdateDto } from './dto/post-update.dto'
 import { PostService } from './post.service'
 
-const path = 'post'
-@ApiTags(path)
+@ApiTags('post')
 @ApiBearerAuth('JWT-Auth')
-@Controller(path)
+@Controller({ version: '1' })
 export class PostController {
     constructor(private readonly service: PostService) {}
 

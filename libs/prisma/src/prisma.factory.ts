@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config'
 import { Prisma, PrismaClient } from '@prisma/client'
 import { Logger } from 'winston'
 
+export const PRISMA_CLIENT = Symbol('PRISMA_CLIENT')
+
 export const extendedPrismaClient = (config: ConfigService, cls: ClsUtil, logger: Logger) => {
     const client = new PrismaClient({
         datasources: { db: { url: config.get<string>('DATABASE_URL')! } },

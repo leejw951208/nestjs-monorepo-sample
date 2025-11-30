@@ -1,14 +1,14 @@
-import { envSchema } from '@libs/common/config/env/env.schema'
+import { commonEnvSchema } from '@libs/common/config/env/env.schema'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { SERVER_ERROR } from '@libs/common/exception/error.code'
 import Joi from 'joi'
 
-export const validateEnvSchema = envSchema.concat(
+export const validateEnvSchema = commonEnvSchema.concat(
     Joi.object({
-        API_PREFIX: Joi.string().required(),
-        API_VERSION: Joi.string().required(),
         APP_NAME: Joi.string().required(),
+        APP_LABEL: Joi.string().required(),
         APP_VERSION: Joi.string().required(),
+        API_VERSION: Joi.string().required(),
         PORT: Joi.string().required()
     })
 )
@@ -22,7 +22,7 @@ export const validateUserEnv = (config: Record<string, unknown>) => {
 
     if (error) {
         // common 의 환경 변수 검증 실패 검증 후 user 의 환경 변수 검증 실패 검증
-        const commonEnvKeys = Object.keys(envSchema.describe().keys ?? {})
+        const commonEnvKeys = Object.keys(commonEnvSchema.describe().keys ?? {})
         if (error.details.some((detail) => typeof detail.path[0] === 'string' && commonEnvKeys.includes(detail.path[0]))) {
             throw new BaseException(SERVER_ERROR.CONFIG_VALIDATION_ERROR, `[Common] Config validation error: ${error.message}`, 'error')
         } else {

@@ -20,13 +20,10 @@ async function bootstrap() {
     app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true, forbidUnknownValues: true }))
 
     // API 전역 설정
-    const appPrefix = config.get<string>('APP_PREFIX')
-    const apiPrefix = appPrefix ? `${appPrefix}/api` : 'user/api'
-    app.setGlobalPrefix(apiPrefix)
+    app.setGlobalPrefix('api')
     app.enableVersioning({
         type: VersioningType.URI,
-        prefix: config.get<string>('API_VERSION')?.split('')[0] ?? 'v',
-        defaultVersion: config.get<string>('API_VERSION')?.split('')[1] ?? '1'
+        prefix: 'v'
     })
 
     app.enableShutdownHooks()
@@ -38,10 +35,13 @@ async function bootstrap() {
     // 스웨거 설정
     setupSwagger(app)
 
-    await app.listen(config.get<number>('user.port') ?? 3000).then(() => {
+    const port = config.get<number>('user.port') ?? 3000
+    const nodeEnv = config.get<string>('user.nodeEnv') ?? 'local'
+
+    await app.listen(port).then(() => {
         logger.log(
-            `[User] App is running on port ${config.get<number>('user.port') ?? 3000} in ${config.get<string>('user.nodeEnv') ?? 'local'} environment,
-                swagger: http://localhost:${config.get<number>('user.port') ?? 3000}/${apiPrefix}/v1/docs
+            `[User] App is running on port ${port} in ${nodeEnv} environment,
+                swagger: [http://localhost:${port}/api/v1/user/docs]
             `
         )
     })

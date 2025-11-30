@@ -5,18 +5,37 @@ import { DocumentBuilder, SwaggerCustomOptions, SwaggerDocumentOptions, SwaggerM
 export function setupSwagger(app: INestApplication): void {
     const config = app.get(ConfigService)
 
-    const title = `${config.get<string>('APP_NAME')} API Documents`
+    const appName = config.get<string>('APP_NAME')
+
+    const title = `${config.get<string>('APP_LABEL')} API Documents`
     const version = `${config.get<string>('APP_VERSION')}`
     const description = ``
 
-    const appPrefix = config.get<string>('APP_PREFIX')
-    const apiPrefix = appPrefix ? `${appPrefix}/api` : 'user/api'
-    const swaggerUri = `${apiPrefix}/${config.get<string>('API_VERSION')}/docs`
-    console.log(swaggerUri)
-    const documentConfig = new DocumentBuilder()
+    const swaggerUriV1 = `/api/v1/${appName}/docs`
+    const documentBuilderV1 = swaggerConfig(title, version, description, swaggerUriV1)
+    const customOptionsV1 = customOptions(title, swaggerUriV1)
+
+    const swaggerUriV2 = `/api/v2/${appName}/docs`
+    const documentBuilderV2 = swaggerConfig(title, version, description, swaggerUriV2)
+    const customOptionsV2 = customOptions(title, swaggerUriV2)
+
+    const documentOption: SwaggerDocumentOptions = {
+        ignoreGlobalPrefix: false,
+        extraModels: []
+    }
+
+    const documentV1 = SwaggerModule.createDocument(app, documentBuilderV1, documentOption)
+    SwaggerModule.setup(swaggerUriV1, app, documentV1, customOptionsV1)
+    const documentV2 = SwaggerModule.createDocument(app, documentBuilderV2, documentOption)
+    SwaggerModule.setup(swaggerUriV2, app, documentV2, customOptionsV2)
+}
+
+const swaggerConfig = (title: string, version: string, description: string, server: string) => {
+    const documentBuilder = new DocumentBuilder()
         .setTitle(title)
         .setDescription(description)
         .setVersion(version)
+        .addServer(server)
         .addBearerAuth(
             {
                 type: 'http',
@@ -27,21 +46,17 @@ export function setupSwagger(app: INestApplication): void {
             'JWT-Auth'
         )
         .build()
-    const documentOption: SwaggerDocumentOptions = {
-        ignoreGlobalPrefix: false,
-        extraModels: []
-    }
-    const customOptions: SwaggerCustomOptions = {
+    return documentBuilder
+}
+
+const customOptions = (title: string, server: string) => {
+    return {
         customSiteTitle: title,
-        customfavIcon: '',
-        yamlDocumentUrl: `${swaggerUri}/yaml`,
-        jsonDocumentUrl: `${swaggerUri}/json`,
+        yamlDocumentUrl: `${server}/yaml`,
+        jsonDocumentUrl: `${server}/json`,
         swaggerOptions: {
             persistAuthorization: true,
             docExpansion: 'none'
         }
     }
-
-    const document = SwaggerModule.createDocument(app, documentConfig, documentOption)
-    SwaggerModule.setup(swaggerUri, app, document, customOptions)
 }

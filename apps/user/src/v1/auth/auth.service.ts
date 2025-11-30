@@ -3,10 +3,10 @@ import { AUTH_ERROR, USER_ERROR } from '@libs/common/exception/error.code'
 import { BcryptUtil } from '@libs/common/utils/bcrypt.util'
 import { JwtUtil } from '@libs/common/utils/jwt.util'
 import { UserModel } from '@libs/models/user/user.model'
-import { ExtendedPrismaClient } from '@libs/prisma/prisma.factory'
+import { ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { CACHE_MANAGER } from '@nestjs/cache-manager'
 import { Inject, Injectable } from '@nestjs/common'
-import { PrismaClient, UserStatus } from '@prisma/client'
+import { UserStatus } from '@prisma/client'
 import { Cache } from 'cache-manager'
 import { plainToInstance } from 'class-transformer'
 import { randomUUID } from 'crypto'
@@ -22,7 +22,7 @@ export class AuthService {
     constructor(
         @Inject(CACHE_MANAGER)
         private readonly cacheManager: Cache,
-        @Inject(PrismaClient) private readonly prisma: ExtendedPrismaClient,
+        @Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient,
         private readonly bcryptUtil: BcryptUtil,
         private readonly jwtUtil: JwtUtil,
         private readonly cls: ClsService
