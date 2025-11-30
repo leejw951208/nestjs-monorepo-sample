@@ -1,17 +1,17 @@
 import { applyDecorators, Type } from '@nestjs/common'
 import { ApiExtraModels, ApiOkResponse } from '@nestjs/swagger'
-import { CursorPageResDto, OffsetPageResDto } from '../dto/page-res.dto'
+import { CursorPaginationResDto, OffsetPaginationResDto } from '../dto/pagination-res.dto'
 import { getSchemaPath } from '@nestjs/swagger'
 
 type Opts = { description?: string; dataKey?: string; mode?: 'offset' | 'cursor' }
 
 function ApiPageOkResponse<TModel extends Type<unknown>>(model: TModel, opts: Opts = {}) {
     const dataKey = opts.dataKey ?? 'data'
-    const Base = opts.mode === 'cursor' ? CursorPageResDto : OffsetPageResDto
+    const Base = opts.mode === 'cursor' ? CursorPaginationResDto : OffsetPaginationResDto
 
     return applyDecorators(
         // 참고: &&는 잘못됨. 두 DTO 모두 등록해야 $ref가 유효
-        ApiExtraModels(OffsetPageResDto, CursorPageResDto, model),
+        ApiExtraModels(OffsetPaginationResDto, CursorPaginationResDto, model),
         ApiOkResponse({
             description: opts.description,
             schema: {
@@ -29,8 +29,24 @@ function ApiPageOkResponse<TModel extends Type<unknown>>(model: TModel, opts: Op
     )
 }
 
-export const ApiOffsetPageOkResponse = <T extends Type<unknown>>(m: T, o: Omit<Opts, 'mode'> = {}) =>
-    ApiPageOkResponse(m, { ...o, mode: 'offset' })
+type ApiPageOkResponseOptions<T> = Opts & { type: T }
 
-export const ApiCursorPageOkResponse = <T extends Type<unknown>>(m: T, o: Omit<Opts, 'mode'> = {}) =>
-    ApiPageOkResponse(m, { ...o, mode: 'cursor' })
+export const ApiOffsetPageOkResponse = <T extends Type<unknown>>(
+    modelOrOptions: T | ApiPageOkResponseOptions<T>,
+    opts: Omit<Opts, 'mode'> = {}
+) => {
+    if ('type' in modelOrOptions && modelOrOptions.type) {
+        return ApiPageOkResponse(modelOrOptions.type, { ...modelOrOptions, mode: 'offset' })
+    }
+    return ApiPageOkResponse(modelOrOptions as T, { ...opts, mode: 'offset' })
+}
+
+export const ApiCursorPageOkResponse = <T extends Type<unknown>>(
+    modelOrOptions: T | ApiPageOkResponseOptions<T>,
+    opts: Omit<Opts, 'mode'> = {}
+) => {
+    if ('type' in modelOrOptions && modelOrOptions.type) {
+        return ApiPageOkResponse(modelOrOptions.type, { ...modelOrOptions, mode: 'cursor' })
+    }
+    return ApiPageOkResponse(modelOrOptions as T, { ...opts, mode: 'cursor' })
+}

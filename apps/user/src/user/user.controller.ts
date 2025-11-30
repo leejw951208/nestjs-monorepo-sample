@@ -19,7 +19,7 @@ export class UserController {
     @ApiOkResponse({ type: UserResDto })
     @Get('me')
     async findMe(@CurrentUser() payload: JwtPayload): Promise<UserResDto> {
-        return this.service.findMe(payload)
+        return this.service.getMe(payload)
     }
 
     @ApiOperation({

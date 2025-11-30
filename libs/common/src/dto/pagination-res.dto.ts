@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger'
 
-export class OffsetPageResDto<T> {
+export class OffsetPaginationResDto<T> {
     @ApiProperty({ type: [Object], required: true, description: '데이터 목록' })
     data: T[]
 
@@ -17,7 +17,7 @@ export class OffsetPageResDto<T> {
     }
 }
 
-export class CursorPageResDto<T> {
+export class CursorPaginationResDto<T> {
     @ApiProperty({ type: [Object], required: true, description: '데이터 목록' })
     data: T[]
 

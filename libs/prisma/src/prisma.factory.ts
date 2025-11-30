@@ -1,5 +1,5 @@
 import { ClsUtil } from '@libs/common/utils/cls.util'
-import { createExtension, findExtension, softDeleteExtension, updateExtension } from '@libs/prisma/prisma-extension'
+import { createExtension, softDeleteExtension, updateExtension } from '@libs/prisma/prisma-extension'
 import { ConfigService } from '@nestjs/config'
 import { Prisma, PrismaClient } from '@prisma/client'
 import { Logger } from 'winston'
@@ -14,7 +14,7 @@ export const extendedPrismaClient = (config: ConfigService, cls: ClsUtil, logger
         logger.debug(`${e.query}: ${e.params}`)
     })
 
-    return client.$extends(findExtension).$extends(createExtension(cls)).$extends(updateExtension(cls)).$extends(softDeleteExtension(cls))
+    return client.$extends(createExtension(cls)).$extends(updateExtension(cls)).$extends(softDeleteExtension(cls))
 }
 
 export type ExtendedPrismaClient = ReturnType<typeof extendedPrismaClient> & PrismaClient

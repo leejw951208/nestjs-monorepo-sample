@@ -1,4 +1,4 @@
-import { CursorPageReqDto, OffsetPageReqDto } from '@libs/common/dto/page-req.dto'
+import { CursorPaginationReqDto, OffsetPaginationReqDto } from '@libs/common/dto/pagination-req.dto'
 
-export class UserOffsetPageReqDto extends OffsetPageReqDto {}
-export class UserCursorPageReqDto extends CursorPageReqDto {}
+export class UserOffsetPageReqDto extends OffsetPaginationReqDto {}
+export class UserCursorPageReqDto extends CursorPaginationReqDto {}

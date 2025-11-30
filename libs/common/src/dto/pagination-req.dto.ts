@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import { IsIn, IsInt, IsNotEmpty, IsOptional, Min } from 'class-validator'
 
-export class OffsetPageReqDto {
+export class OffsetPaginationReqDto {
     @ApiProperty({ type: Number, required: true, description: '페이지 번호', example: 1 })
     @IsNotEmpty()
     @Type(() => Number)
@@ -27,9 +27,11 @@ export class OffsetPageReqDto {
     @IsOptional()
     @IsIn(['asc', 'desc'])
     order: 'asc' | 'desc'
+
+    filter?: Record<string, any>
 }
 
-export class CursorPageReqDto {
+export class CursorPaginationReqDto {
     @ApiProperty({ type: Number, required: false, description: '다음 페이지 아이디(PK)', example: 1 })
     @IsOptional()
     @Type(() => Number)

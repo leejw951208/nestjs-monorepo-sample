@@ -86,7 +86,7 @@ export class AuthService {
         const payload = await this.jwtUtil.verify(refreshToken, 're')
 
         // 회원 정보 조회
-        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.userId } })
+        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id } })
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
         // Redis에 저장된 리프레시 토큰 삭제
@@ -98,7 +98,7 @@ export class AuthService {
         const payload = await this.jwtUtil.verify(refreshToken, 're')
 
         // 회원 정보 조회
-        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.userId } })
+        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id } })
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
         // Redis에 저장된 리프레시 토큰 조회

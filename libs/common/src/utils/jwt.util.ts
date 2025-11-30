@@ -8,7 +8,7 @@ import { Admin, User } from '@prisma/client'
 type Aud = 'admin' | 'api'
 
 export interface JwtPayload {
-    userId: number // pk
+    id: number // pk
     type: 'ac' | 're' // 토큰 타입
     aud: Aud // 토큰 수신자
     jti: string // 토큰 고유 값
@@ -42,7 +42,7 @@ export class JwtUtil {
 
     createTokenPayload(model: User | Admin, aud: Aud, type: 'ac' | 're', jti: string): JwtPayload {
         return {
-            userId: model.id,
+            id: model.id,
             type,
             aud,
             jti,

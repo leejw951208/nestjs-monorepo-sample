@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common'
 import { ClsService } from 'nestjs-cls'
 
 export interface ClsStore {
-    userId: number
+    id: number
     aud: string | null
-    userAgent: string
+    agent: string
     clientIp: string
 }
 
@@ -12,16 +12,16 @@ export interface ClsStore {
 export class ClsUtil {
     constructor(private readonly cls: ClsService) {}
 
-    getUserId(): number {
-        return this.cls.get('userId') ?? 0
+    getId(): number {
+        return this.cls.get('id') ?? 0
     }
 
     getAud(): string | null {
         return this.cls.get('aud') ?? null
     }
 
-    getUserAgent(): string {
-        return this.cls.get('userAgent') ?? 'unknown'
+    getAgent(): string {
+        return this.cls.get('agent') ?? 'unknown'
     }
 
     getClientIp(): string {
@@ -30,9 +30,9 @@ export class ClsUtil {
 
     get(): ClsStore {
         return {
-            userId: this.getUserId(),
+            id: this.getId(),
             aud: this.getAud(),
-            userAgent: this.getUserAgent(),
+            agent: this.getAgent(),
             clientIp: this.getClientIp()
         }
     }

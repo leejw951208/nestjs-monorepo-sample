@@ -18,13 +18,13 @@ export class CustomClsMiddleware implements NestMiddleware {
                 const token = authHeader.slice(7)
                 const decodedPayload = this.jwtService.decode(token) as JwtPayload
                 if (decodedPayload) {
-                    this.cls.set('userId', decodedPayload.userId ?? 0)
+                    this.cls.set('id', decodedPayload.id ?? 0)
                     this.cls.set('aud', decodedPayload.aud ?? null)
                 }
             }
 
-            const userAgent = req.headers['user-agent'] ?? 'unknown'
-            this.cls.set('userAgent', userAgent)
+            const agent = req.headers['user-agent'] ?? 'unknown'
+            this.cls.set('agent', agent)
 
             const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress
             this.cls.set('clientIp', clientIp)

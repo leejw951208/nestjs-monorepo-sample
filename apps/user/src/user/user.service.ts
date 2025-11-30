@@ -19,13 +19,13 @@ export class UserService {
         @Inject(userEnvConfig.KEY) private readonly userEnv: ConfigType<typeof userEnvConfig>
     ) {}
 
-    async findMe(payload: JwtPayload): Promise<UserResDto> {
-        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.userId } })
+    async getMe(payload: JwtPayload): Promise<UserResDto> {
+        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id } })
         return plainToInstance(UserResDto, foundUser, { excludeExtraneousValues: true })
     }
 
     async updateMe(payload: JwtPayload, reqDto: UserUpdateDto): Promise<void> {
-        const updatedUser = await this.prisma.user.update({ where: { id: payload.userId }, data: reqDto })
+        const updatedUser = await this.prisma.user.update({ where: { id: payload.id }, data: reqDto })
         if (!updatedUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
     }
 

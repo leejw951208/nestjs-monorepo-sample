@@ -1,11 +1,12 @@
+import { ApiOffsetPageOkResponse } from '@libs/common/decorator/api-page-ok-response.decorator'
 import { CurrentUser } from '@libs/common/decorator/jwt-payload.decorator'
 import { Public } from '@libs/common/decorator/public.decorator'
-import { OffsetPageResDto } from '@libs/common/dto/page-res.dto'
+import { OffsetPaginationResDto } from '@libs/common/dto/pagination-res.dto'
 import { JwtPayload } from '@libs/common/utils/jwt.util'
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { PostCreateDto } from './dto/post-create.dto'
-import { PostListReqDto } from './dto/post-list.dto'
+import { PostOffsetPaginationReqDto } from './dto/post-offset-pagination-req.dto'
 import { PostResDto } from './dto/post-res.dto'
 import { PostUpdateDto } from './dto/post-update.dto'
 import { PostService } from './post.service'
@@ -25,28 +26,30 @@ export class PostController {
         return this.service.createPost(payload, reqDto)
     }
 
-    @ApiOperation({ summary: '게시글 목록 조회 (공개)' })
-    @ApiOkResponse({ type: OffsetPageResDto<PostResDto> })
+    @ApiOperation({ summary: '전체 게시글 목록 조회' })
+    @ApiOffsetPageOkResponse({ type: PostResDto })
     @Public()
-    @Get()
-    async getPostList(@Query() query: PostListReqDto): Promise<OffsetPageResDto<PostResDto>> {
-        return this.service.getPostList(query)
+    @Get('offset')
+    async getPostList(@Query() query: PostOffsetPaginationReqDto): Promise<OffsetPaginationResDto<PostResDto>> {
+        return this.service.getPostByPagination(query)
     }
 
     @ApiOperation({ summary: '내 게시글 목록 조회' })
-    @ApiOkResponse({ type: OffsetPageResDto<PostResDto> })
-    @Get('me')
-    async getMyPosts(@CurrentUser() payload: JwtPayload, @Query() query: PostListReqDto): Promise<OffsetPageResDto<PostResDto>> {
+    @ApiOffsetPageOkResponse({ type: PostResDto })
+    @Get('me/offset')
+    async getMyPosts(
+        @CurrentUser() payload: JwtPayload,
+        @Query() query: PostOffsetPaginationReqDto
+    ): Promise<OffsetPaginationResDto<PostResDto>> {
         return this.service.getMyPosts(payload, query)
     }
 
-    @ApiOperation({ summary: '게시글 상세 조회 (공개)' })
+    @ApiOperation({ summary: '게시글 상세 조회' })
     @ApiParam({ name: 'id', description: '게시글 ID', type: Number })
     @ApiOkResponse({ type: PostResDto })
-    @Public()
     @Get(':id')
-    async getPostById(@Param('id', ParseIntPipe) postId: number): Promise<PostResDto> {
-        return this.service.getPostById(postId)
+    async getPostById(@CurrentUser() payload: JwtPayload, @Param('id', ParseIntPipe) postId: number): Promise<PostResDto> {
+        return this.service.getPostById(payload, postId)
     }
 
     @ApiOperation({ summary: '게시글 수정' })
