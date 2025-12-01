@@ -1,4 +1,4 @@
-import { commonEnvSchema } from '@libs/common/config/env/env.schema'
+import { commonEnvSchema } from '@libs/common/config/env/common-env.schema'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { SERVER_ERROR } from '@libs/common/exception/error.code'
 import Joi from 'joi'
