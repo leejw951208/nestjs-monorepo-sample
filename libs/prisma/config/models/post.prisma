@@ -14,6 +14,8 @@ model Post {
     deletedAt DateTime? @map("deleted_at")
     deletedBy Int?      @map("deleted_by")
 
+    @@index([userId, status, isDeleted])
+    @@index([status, isDeleted, id])
     @@map("post")
     @@schema("base")
 }

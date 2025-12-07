@@ -28,13 +28,15 @@ export class UserService {
         if (!updatedUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
     }
 
-    // async findUsersWithOffset(searchCondition: UserOffsetPageReqDto): Promise<OffsetPageResDto<UserResDto>> {
-    //     const { items, totalCount } = await listUsersOffset(this.prisma, searchCondition)
-    //     return new OffsetPageResDto(plainToInstance(UserResDto, items, { excludeExtraneousValues: true }), searchCondition.page, totalCount)
-    // }
+    async deleteMe(payload: JwtPayload): Promise<void> {
+        // 회원 조회
+        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id } })
+        if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
-    // async findUsersWithCursor(searchCondition: UserCursorPageReqDto): Promise<CursorPageResDto<UserResDto>> {
-    //     const { items, nextId } = await listUsersCursor(this.prisma, searchCondition)
-    //     return new CursorPageResDto(plainToInstance(UserResDto, items, { excludeExtraneousValues: true }), nextId)
-    // }
+        // 이미 탈퇴한 회원인지 확인
+        if (foundUser.isDeleted) throw new BaseException(USER_ERROR.ALREADY_DELETED, this.constructor.name)
+
+        // Soft delete 처리
+        await this.prisma.user.softDelete({ where: { id: payload.id } })
+    }
 }

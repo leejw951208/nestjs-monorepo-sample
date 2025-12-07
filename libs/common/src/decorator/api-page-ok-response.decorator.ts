@@ -1,7 +1,6 @@
 import { applyDecorators, Type } from '@nestjs/common'
-import { ApiExtraModels, ApiOkResponse } from '@nestjs/swagger'
+import { ApiExtraModels, ApiOkResponse, getSchemaPath } from '@nestjs/swagger'
 import { CursorPaginationResDto, OffsetPaginationResDto } from '../dto/pagination-res.dto'
-import { getSchemaPath } from '@nestjs/swagger'
 
 type Opts = { description?: string; dataKey?: string; mode?: 'offset' | 'cursor' }
 
@@ -10,7 +9,7 @@ function ApiPageOkResponse<TModel extends Type<unknown>>(model: TModel, opts: Op
     const Base = opts.mode === 'cursor' ? CursorPaginationResDto : OffsetPaginationResDto
 
     return applyDecorators(
-        // 참고: &&는 잘못됨. 두 DTO 모두 등록해야 $ref가 유효
+        // 참고: &&는 잘못됨. 모든 DTO를 등록해야 $ref가 유효
         ApiExtraModels(OffsetPaginationResDto, CursorPaginationResDto, model),
         ApiOkResponse({
             description: opts.description,

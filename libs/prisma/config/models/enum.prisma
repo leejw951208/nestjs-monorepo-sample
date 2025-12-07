@@ -35,3 +35,12 @@ enum PostStatus {
 
     @@schema("public")
 }
+
+enum NotificationType {
+    SYSTEM
+    POST
+    COMMENT
+    USER
+
+    @@schema("public")
+}

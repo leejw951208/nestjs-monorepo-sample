@@ -12,10 +12,11 @@ import { plainToInstance } from 'class-transformer'
 import { randomUUID } from 'crypto'
 import { ClsService } from 'nestjs-cls'
 import { UserResDto } from '../user/dto/user-res.dto'
-import { RefreshTokenResponseDto } from './dto/refresh-token-response.dto'
-import { SigninRequestDto } from './dto/signin-request.dto'
-import { SigninResponseDto } from './dto/signin-response.dto'
-import { SignupRequestDto } from './dto/signup-request.dto'
+import { RefreshTokenResDto } from './dto/refresh-token-res.dto'
+import { ResetPasswordReqDto } from './dto/reset-password-req.dto'
+import { SigninReqDto } from './dto/signin-req.dto'
+import { SigninResDto } from './dto/signin-res.dto'
+import { SignupReqDto } from './dto/signup-req.dto'
 
 @Injectable()
 export class AuthService {
@@ -28,7 +29,7 @@ export class AuthService {
         private readonly cls: ClsService
     ) {}
 
-    async signup(reqDto: SignupRequestDto): Promise<void> {
+    async signup(reqDto: SignupReqDto): Promise<void> {
         // 로그인 아이디 중복 검사
         const foundUsers = await this.prisma.user.findMany({
             where: { OR: [{ loginId: reqDto.loginId }, { email: reqDto.email }] },
@@ -49,7 +50,7 @@ export class AuthService {
         await this.prisma.user.create({ data: createdUser })
     }
 
-    async signin(reqDto: SigninRequestDto): Promise<{ resDto: SigninResponseDto; refreshToken: string }> {
+    async signin(reqDto: SigninReqDto): Promise<{ resDto: SigninResDto; refreshToken: string }> {
         // 회원 조회
         const foundUser = await this.prisma.user.findFirst({ where: { loginId: reqDto.loginId } })
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
@@ -67,10 +68,10 @@ export class AuthService {
 
         // Redis에 리프레시 토큰 저장
         const hashedRefreshToken = await this.bcryptUtil.hash(refreshToken)
-        await this.cacheManager.set(`rt:${jti}`, hashedRefreshToken, 1000 * 60)
+        await this.cacheManager.set(`rt:${jti}`, hashedRefreshToken, 1000 * 60 * 60 * 24 * 7)
 
         const resDto = plainToInstance(
-            SigninResponseDto,
+            SigninResDto,
             {
                 accessToken,
                 user: plainToInstance(UserResDto, foundUser, { excludeExtraneousValues: true })
@@ -93,7 +94,7 @@ export class AuthService {
         await this.cacheManager.del(`rt:${payload.jti}`)
     }
 
-    async refreshToken(refreshToken: string): Promise<{ resDto: RefreshTokenResponseDto; refreshToken: string }> {
+    async refreshToken(refreshToken: string): Promise<{ resDto: RefreshTokenResDto; refreshToken: string }> {
         // 토큰 검증 및 페이로드 추출
         const payload = await this.jwtUtil.verify(refreshToken, 're')
 
@@ -121,11 +122,34 @@ export class AuthService {
 
         // Redis에 새로운 리프레시 토큰 저장
         const hashedNewRefreshToken = await this.bcryptUtil.hash(newRefreshToken)
-        await this.cacheManager.set(`rt:${jti}`, hashedNewRefreshToken, 1000 * 60)
+        await this.cacheManager.set(`rt:${jti}`, hashedNewRefreshToken, 1000 * 60 * 60 * 24 * 7)
 
         return {
-            resDto: plainToInstance(RefreshTokenResponseDto, { accessToken: newAccessToken }),
+            resDto: plainToInstance(RefreshTokenResDto, { accessToken: newAccessToken }),
             refreshToken: newRefreshToken
         }
+    }
+
+    async resetPassword(reqDto: ResetPasswordReqDto): Promise<void> {
+        // 이름과 아이디로 회원 조회
+        const foundUser = await this.prisma.user.findFirst({
+            where: {
+                loginId: reqDto.loginId,
+                name: reqDto.name,
+                isDeleted: false
+            }
+        })
+
+        // 회원 정보가 일치하지 않으면 에러
+        if (!foundUser) throw new BaseException(USER_ERROR.VERIFICATION_FAILED, this.constructor.name)
+
+        // 새 비밀번호 해싱
+        const hashedPassword = await this.bcryptUtil.hash(reqDto.newPassword)
+
+        // 비밀번호 업데이트
+        await this.prisma.user.update({
+            where: { id: foundUser.id },
+            data: { password: hashedPassword }
+        })
     }
 }

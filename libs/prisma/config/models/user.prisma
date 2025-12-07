@@ -14,8 +14,9 @@ model User {
     deletedAt DateTime?  @map("deleted_at")
     deletedBy Int?       @map("deleted_by")
 
-    userRoles UserRole[]
-    posts     Post[]
+    userRoles     UserRole[]
+    posts         Post[]
+    notifications Notification[]
 
     @@map("user")
     @@schema("base")

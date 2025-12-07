@@ -1,4 +1,4 @@
-import { AuthErrorType, BadRequestType, NotFoundType, PostErrorType, SeedErrorType, ServerErrorType, UserErrorType } from './error.type'
+import { AuthErrorType, BadRequestType, NotFoundType, NotificationErrorType, PostErrorType, SeedErrorType, ServerErrorType, UserErrorType } from './error.type'
 
 export interface IErrorCodes {
     errorCode: string
@@ -78,6 +78,16 @@ export const USER_ERROR: {
         status: 400,
         errorCode: 'USER_ERROR_003',
         message: '이미 존재하는 이메일입니다.'
+    },
+    VERIFICATION_FAILED: {
+        status: 400,
+        errorCode: 'USER_ERROR_004',
+        message: '회원 인증에 실패했습니다. 이름과 아이디를 확인해주세요.'
+    },
+    ALREADY_DELETED: {
+        status: 400,
+        errorCode: 'USER_ERROR_005',
+        message: '이미 탈퇴한 회원입니다.'
     }
 }
 
@@ -93,6 +103,16 @@ export const POST_ERROR: {
         status: 403,
         errorCode: 'POST_ERROR_002',
         message: '게시글에 대한 권한이 없습니다.'
+    }
+}
+
+export const NOTIFICATION_ERROR: {
+    [key in NotificationErrorType]: IErrorCodes
+} = {
+    NOT_FOUND: {
+        status: 404,
+        errorCode: 'NOTIFICATION_ERROR_001',
+        message: '알림을 찾을 수 없습니다.'
     }
 }
 

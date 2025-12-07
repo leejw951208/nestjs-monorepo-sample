@@ -13,5 +13,11 @@ export type AuthErrorType =
     | 'EXPIRED_REFRESH_TOKEN'
     | 'PASSWORD_NOT_MATCHED'
     | 'RESOURCE_ACCESS_DENIED'
-export type UserErrorType = typeof NotFoundType | 'ALREADY_EXISTS_LOGIN_ID' | 'ALREADY_EXISTS_EMAIL'
+export type UserErrorType =
+    | typeof NotFoundType
+    | 'ALREADY_EXISTS_LOGIN_ID'
+    | 'ALREADY_EXISTS_EMAIL'
+    | 'VERIFICATION_FAILED'
+    | 'ALREADY_DELETED'
 export type PostErrorType = typeof NotFoundType | 'FORBIDDEN'
+export type NotificationErrorType = typeof NotFoundType

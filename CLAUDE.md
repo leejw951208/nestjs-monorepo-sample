@@ -20,8 +20,11 @@ This is a NestJS monorepo containing two applications (user and admin) with shar
 # Install dependencies
 yarn install
 
-# Run application (NODE_ENV=local)
-yarn start
+# Run user application (NODE_ENV=local)
+yarn start:local:user
+
+# Run admin application (NODE_ENV=local)
+yarn start:local:admin
 
 # Run in debug mode
 yarn start:debug
@@ -30,11 +33,8 @@ yarn start:debug
 ### Database Operations
 
 ```bash
-# Generate Prisma client
+# Generate Prisma client (includes TypedSQL generation)
 yarn db:generate
-
-# Generate typed SQL
-yarn db:generate:typed-sql
 
 # Run migrations
 yarn db:migrate
@@ -67,6 +67,12 @@ yarn lint
 ```bash
 # Run all tests
 yarn test
+
+# Run user app tests
+yarn test:user
+
+# Run admin app tests
+yarn test:admin
 
 # Watch mode
 yarn test:watch
@@ -156,10 +162,11 @@ Both applications share common bootstrap configuration:
 
 1. **Logger**: Winston with daily rotate file
 2. **Exception Handler**: Global exception filter
-3. **Validation**: ValidationPipe with transform, whitelist, forbidNonWhitelisted
+3. **Validation**: ValidationPipe with transform, whitelist, forbidNonWhitelisted, forbidUnknownValues
 4. **Serialization**: ClassSerializerInterceptor for response transformation
 5. **API Versioning**: URI-based (default: v1)
-6. **Swagger**: Auto-generated at `/api/v1/docs` and `/admin/v1/docs`
+6. **Swagger**: Auto-generated at `/api/v1/user/docs` and `/api/v1/admin/docs`
+7. **Interceptors**: SuccessStatusInterceptor for standardized response formatting
 
 ### Environment Files
 
@@ -174,7 +181,7 @@ Each app can also have app-specific environment files in `apps/{app-name}/envs/`
 
 1. **LoggerMiddleware** - Request/response logging
 2. **CustomClsMiddleware** - Continuation-local storage for request context
-3. **cookieParser** - Parse cookies (user only)
+3. **cookieParser** - Parse cookies (both apps)
 
 ### Common Library Components
 
@@ -219,7 +226,12 @@ Common patterns in models:
 
 ### Running Specific Apps
 
-Since this is a monorepo with multiple apps, you need to specify which app to start. The main `package.json` uses `nest start --watch` but in practice you'll need to target specific apps during development.
+Since this is a monorepo with multiple apps, you need to specify which app to start:
+
+- **User App**: `yarn start:local:user` (default port: 3000)
+- **Admin App**: `yarn start:local:admin` (default port: 3000, configurable via environment)
+
+Both apps use the `NODE_ENV=local` environment and load configuration from `envs/.env.local` and app-specific environment files.
 
 ### Database Scripts
 
@@ -231,10 +243,15 @@ The project uses `@keyv/redis` with `@nestjs/cache-manager` for token management
 
 ### API Documentation
 
-Both apps have Swagger UI enabled. API endpoints follow the pattern:
+Both apps have Swagger UI enabled:
+
+- **User API Swagger**: `http://localhost:3000/api/v1/user/docs`
+- **Admin API Swagger**: `http://localhost:3000/api/v1/admin/docs`
+
+API endpoints follow the pattern:
 
 - User API: `http://localhost:3000/api/v1/*`
-- Admin API: `http://localhost:3000/admin/v1/*`
+- Admin API: `http://localhost:3000/api/v1/*` (configurable prefix)
 
 ### Testing Structure
 

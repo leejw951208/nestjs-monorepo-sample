@@ -5,15 +5,18 @@ import { PostStatus } from '@prisma/client'
 import { JwtPayload } from '@libs/common/utils/jwt.util'
 import { PostCreateDto } from './dto/post-create.dto'
 import { PostResDto } from './dto/post-res.dto'
-import { PostOffsetPaginationReqDto } from './dto/post-offset-pagination-req.dto'
-import { OffsetPaginationResDto } from '@libs/common/dto/pagination-res.dto'
+import { CursorPaginationResDto, OffsetPaginationResDto } from '@libs/common/dto/pagination-res.dto'
 import { PostUpdateDto } from './dto/post-update.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { POST_ERROR } from '@libs/common/exception/error.code'
+import { PostQuery } from './post.query'
+import { PostOffsetPaginationReqDto } from './dto/post-offset-pagination-req.dto'
+import { PostCursorPaginationReqDto } from './dto/post-cursor-pagination-req.dto'
 
 describe('PostService', () => {
     let service: PostService
     let prisma: ExtendedPrismaClient
+    let postQuery: PostQuery
 
     const mockPrisma = {
         post: {
@@ -26,13 +29,19 @@ describe('PostService', () => {
         }
     }
 
+    const mockPostQuery = {
+        getPostsOffset: jest.fn(),
+        getPostsCursor: jest.fn()
+    }
+
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [PostService, { provide: PRISMA_CLIENT, useValue: mockPrisma }]
+            providers: [PostService, { provide: PRISMA_CLIENT, useValue: mockPrisma }, { provide: PostQuery, useValue: mockPostQuery }]
         }).compile()
 
         service = module.get<PostService>(PostService)
         prisma = module.get<ExtendedPrismaClient>(PRISMA_CLIENT)
+        postQuery = module.get<PostQuery>(PostQuery)
     })
 
     afterEach(() => {
@@ -64,7 +73,7 @@ describe('PostService', () => {
 
             mockPrisma.post.create.mockResolvedValue(createdPost)
 
-            const result = await service.createPost(payload, reqDto)
+            const result = await service.savePost(payload, reqDto)
 
             expect(prisma.post.create).toHaveBeenCalledWith({
                 data: {
@@ -72,8 +81,7 @@ describe('PostService', () => {
                     content: reqDto.content,
                     userId: payload.id,
                     status: reqDto.status,
-                    createdBy: payload.id,
-                    updatedBy: payload.id
+                    createdBy: payload.id
                 }
             })
             expect(result).toBeInstanceOf(PostResDto)
@@ -81,13 +89,13 @@ describe('PostService', () => {
         })
     })
 
-    describe('getPostByPagination', () => {
+    describe('getPosts', () => {
         it('should return paginated posts', async () => {
             const query: PostOffsetPaginationReqDto = {
                 page: 1,
                 size: 10,
                 order: 'desc',
-                'filter[title]': ''
+                title: ''
             }
             const posts = [
                 {
@@ -98,25 +106,17 @@ describe('PostService', () => {
                     status: PostStatus.PUBLISHED,
                     viewCount: 0,
                     createdAt: new Date(),
-                    updatedAt: new Date()
+                    updatedAt: new Date(),
+                    isDeleted: false
                 }
             ]
             const totalCount = 1
 
-            mockPrisma.post.findMany.mockResolvedValue(posts)
-            mockPrisma.post.count.mockResolvedValue(totalCount)
+            mockPostQuery.getPostsOffset.mockResolvedValue({ items: posts, totalCount })
 
-            const result = await service.getPostByPagination(query)
+            const result = await service.getPostsOffset(query)
 
-            expect(prisma.post.findMany).toHaveBeenCalledWith({
-                where: { status: PostStatus.PUBLISHED },
-                orderBy: { createdAt: 'desc' },
-                skip: 0,
-                take: 10
-            })
-            expect(prisma.post.count).toHaveBeenCalledWith({
-                where: { status: PostStatus.PUBLISHED }
-            })
+            expect(postQuery.getPostsOffset).toHaveBeenCalledWith(query)
             expect(result).toBeInstanceOf(OffsetPaginationResDto)
             expect(result.data[0]).toBeInstanceOf(PostResDto)
             expect(result.totalCount).toBe(totalCount)
@@ -135,20 +135,22 @@ describe('PostService', () => {
                 status: PostStatus.PUBLISHED,
                 viewCount: 0,
                 createdAt: new Date(),
-                updatedAt: new Date()
+                updatedAt: new Date(),
+                isDeleted: false
             }
 
             mockPrisma.post.findFirst.mockResolvedValue(post)
-            mockPrisma.post.update.mockResolvedValue({ ...post, viewCount: 1 })
+            mockPrisma.post.update.mockResolvedValue({ viewCount: 1 })
 
-            const result = await service.getPostById(payload, postId)
+            const result = await service.getPost(payload, postId)
 
             expect(prisma.post.findFirst).toHaveBeenCalledWith({
-                where: { id: postId, userId: payload.id }
+                where: { id: postId, isDeleted: false }
             })
             expect(prisma.post.update).toHaveBeenCalledWith({
-                where: { id: postId },
-                data: { viewCount: { increment: 1 } }
+                where: { id: postId, isDeleted: false },
+                data: { viewCount: { increment: 1 } },
+                select: { viewCount: true }
             })
             expect(result).toBeInstanceOf(PostResDto)
             expect(result.viewCount).toBe(1)
@@ -160,8 +162,8 @@ describe('PostService', () => {
 
             mockPrisma.post.findFirst.mockResolvedValue(null)
 
-            await expect(service.getPostById(payload, postId)).rejects.toThrow(BaseException)
-            await expect(service.getPostById(payload, postId)).rejects.toThrow(POST_ERROR.NOT_FOUND.message)
+            await expect(service.getPost(payload, postId)).rejects.toThrow(BaseException)
+            await expect(service.getPost(payload, postId)).rejects.toThrow(POST_ERROR.NOT_FOUND.message)
         })
     })
 
@@ -172,7 +174,7 @@ describe('PostService', () => {
                 page: 1,
                 size: 10,
                 order: 'desc',
-                'filter[title]': ''
+                title: ''
             }
             const posts = [
                 {
@@ -183,26 +185,89 @@ describe('PostService', () => {
                     status: PostStatus.PUBLISHED,
                     viewCount: 0,
                     createdAt: new Date(),
-                    updatedAt: new Date()
+                    updatedAt: new Date(),
+                    isDeleted: false
                 }
             ]
             const totalCount = 1
 
-            mockPrisma.post.findMany.mockResolvedValue(posts)
-            mockPrisma.post.count.mockResolvedValue(totalCount)
+            mockPostQuery.getPostsOffset.mockResolvedValue({ items: posts, totalCount })
 
-            const result = await service.getMyPosts(payload, query)
+            const result = await service.getMyPostsOffset(payload, query)
 
-            expect(prisma.post.findMany).toHaveBeenCalledWith({
-                where: { userId: payload.id },
-                orderBy: { createdAt: 'desc' },
-                skip: 0,
-                take: 10
-            })
-            expect(prisma.post.count).toHaveBeenCalledWith({
-                where: { userId: payload.id }
-            })
+            expect(postQuery.getPostsOffset).toHaveBeenCalledWith(query, payload.id)
             expect(result).toBeInstanceOf(OffsetPaginationResDto)
+            expect(result.data[0]).toBeInstanceOf(PostResDto)
+            expect(result.totalCount).toBe(totalCount)
+        })
+    })
+
+    describe('getPostsCursor', () => {
+        it('should return cursor paginated posts', async () => {
+            const query: PostCursorPaginationReqDto = {
+                lastCursor: undefined,
+                size: 10,
+                order: 'desc',
+                title: ''
+            }
+            const posts = [
+                {
+                    id: 1,
+                    title: 'Test Title',
+                    content: 'Test Content',
+                    userId: 1,
+                    status: PostStatus.PUBLISHED,
+                    viewCount: 0,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    isDeleted: false
+                }
+            ]
+            const nextCursor = 1
+
+            mockPostQuery.getPostsCursor.mockResolvedValue({ items: posts, nextCursor })
+
+            const result = await service.getPostsCursor(query)
+
+            expect(postQuery.getPostsCursor).toHaveBeenCalledWith(query)
+            expect(result).toBeInstanceOf(CursorPaginationResDto)
+            expect(result.data[0]).toBeInstanceOf(PostResDto)
+            expect(result.nextCursor).toBe(nextCursor)
+        })
+    })
+
+    describe('getMyPostsCursor', () => {
+        it('should return my cursor paginated posts', async () => {
+            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
+            const query: PostCursorPaginationReqDto = {
+                lastCursor: undefined,
+                size: 10,
+                order: 'desc',
+                title: ''
+            }
+            const posts = [
+                {
+                    id: 1,
+                    title: 'Test Title',
+                    content: 'Test Content',
+                    userId: 1,
+                    status: PostStatus.PUBLISHED,
+                    viewCount: 0,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    isDeleted: false
+                }
+            ]
+            const nextCursor = 1
+
+            mockPostQuery.getPostsCursor.mockResolvedValue({ items: posts, nextCursor })
+
+            const result = await service.getMyPostsCursor(payload, query)
+
+            expect(postQuery.getPostsCursor).toHaveBeenCalledWith(query, payload.id)
+            expect(result).toBeInstanceOf(CursorPaginationResDto)
+            expect(result.data[0]).toBeInstanceOf(PostResDto)
+            expect(result.nextCursor).toBe(nextCursor)
         })
     })
 
@@ -220,7 +285,7 @@ describe('PostService', () => {
 
             mockPrisma.post.findFirst.mockResolvedValue(post)
 
-            await service.updatePost(payload, postId, reqDto)
+            await service.updateMyPost(payload, postId, reqDto)
 
             expect(prisma.post.findFirst).toHaveBeenCalledWith({ where: { id: postId } })
             expect(prisma.post.update).toHaveBeenCalledWith({
@@ -236,8 +301,8 @@ describe('PostService', () => {
 
             mockPrisma.post.findFirst.mockResolvedValue(null)
 
-            await expect(service.updatePost(payload, postId, reqDto)).rejects.toThrow(BaseException)
-            await expect(service.updatePost(payload, postId, reqDto)).rejects.toThrow(POST_ERROR.NOT_FOUND.message)
+            await expect(service.updateMyPost(payload, postId, reqDto)).rejects.toThrow(BaseException)
+            await expect(service.updateMyPost(payload, postId, reqDto)).rejects.toThrow(POST_ERROR.NOT_FOUND.message)
         })
 
         it('should throw exception if user is not the owner', async () => {
@@ -251,8 +316,8 @@ describe('PostService', () => {
 
             mockPrisma.post.findFirst.mockResolvedValue(post)
 
-            await expect(service.updatePost(payload, postId, reqDto)).rejects.toThrow(BaseException)
-            await expect(service.updatePost(payload, postId, reqDto)).rejects.toThrow(POST_ERROR.FORBIDDEN.message)
+            await expect(service.updateMyPost(payload, postId, reqDto)).rejects.toThrow(BaseException)
+            await expect(service.updateMyPost(payload, postId, reqDto)).rejects.toThrow(POST_ERROR.FORBIDDEN.message)
         })
     })
 
@@ -267,7 +332,7 @@ describe('PostService', () => {
 
             mockPrisma.post.findFirst.mockResolvedValue(post)
 
-            await service.deletePost(payload, postId)
+            await service.deleteMyPost(payload, postId)
 
             expect(prisma.post.findFirst).toHaveBeenCalledWith({ where: { id: postId } })
             expect(prisma.post.softDelete).toHaveBeenCalledWith({ where: { id: postId } })
@@ -279,8 +344,8 @@ describe('PostService', () => {
 
             mockPrisma.post.findFirst.mockResolvedValue(null)
 
-            await expect(service.deletePost(payload, postId)).rejects.toThrow(BaseException)
-            await expect(service.deletePost(payload, postId)).rejects.toThrow(POST_ERROR.NOT_FOUND.message)
+            await expect(service.deleteMyPost(payload, postId)).rejects.toThrow(BaseException)
+            await expect(service.deleteMyPost(payload, postId)).rejects.toThrow(POST_ERROR.NOT_FOUND.message)
         })
 
         it('should throw exception if user is not the owner', async () => {
@@ -293,8 +358,8 @@ describe('PostService', () => {
 
             mockPrisma.post.findFirst.mockResolvedValue(post)
 
-            await expect(service.deletePost(payload, postId)).rejects.toThrow(BaseException)
-            await expect(service.deletePost(payload, postId)).rejects.toThrow(POST_ERROR.FORBIDDEN.message)
+            await expect(service.deleteMyPost(payload, postId)).rejects.toThrow(BaseException)
+            await expect(service.deleteMyPost(payload, postId)).rejects.toThrow(POST_ERROR.FORBIDDEN.message)
         })
     })
 })

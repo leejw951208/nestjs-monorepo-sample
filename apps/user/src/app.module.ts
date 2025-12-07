@@ -15,9 +15,10 @@ import * as path from 'path'
 
 import userEnvConfig from './config/env/user-env.config'
 import { validateUserEnv } from './config/env/user-env.validator'
+import { AuthModule } from './v1/auth/auth.module'
+import { NotificationModule } from './v1/notification/notification.module'
 import { PostModule } from './v1/post/post.module'
 import { UserModule } from './v1/user/user.module'
-import { AuthModule } from './v1/auth/auth.module'
 
 const childrenRoutes = [
     {
@@ -29,8 +30,12 @@ const childrenRoutes = [
         module: AuthModule
     },
     {
-        path: 'post',
+        path: 'posts',
         module: PostModule
+    },
+    {
+        path: 'notifications',
+        module: NotificationModule
     }
 ]
 
@@ -67,7 +72,8 @@ const childrenRoutes = [
         PrismaModule,
         AuthModule,
         UserModule,
-        PostModule
+        PostModule,
+        NotificationModule
     ],
     providers: [{ provide: APP_GUARD, useClass: JwtAccessGuard }]
 })

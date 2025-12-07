@@ -18,7 +18,8 @@ describe('UserService', () => {
     const mockPrisma = {
         user: {
             findFirst: jest.fn(),
-            update: jest.fn()
+            update: jest.fn(),
+            softDelete: jest.fn()
         }
     }
 
@@ -101,6 +102,60 @@ describe('UserService', () => {
 
             await expect(service.updateMe(payload, updateDto)).rejects.toThrow(BaseException)
             await expect(service.updateMe(payload, updateDto)).rejects.toThrow(USER_ERROR.NOT_FOUND.message)
+        })
+    })
+
+    describe('deleteMe', () => {
+        it('should successfully soft delete user', async () => {
+            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
+            const user = {
+                id: 1,
+                email: 'test@example.com',
+                loginId: 'testuser',
+                name: 'Test User',
+                status: UserStatus.ACTIVE,
+                isDeleted: false,
+                deletedAt: null,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+
+            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockPrisma.user.softDelete.mockResolvedValue(undefined)
+
+            await service.deleteMe(payload)
+
+            expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { id: payload.id } })
+            expect(prisma.user.softDelete).toHaveBeenCalledWith({ where: { id: payload.id } })
+        })
+
+        it('should throw exception if user not found', async () => {
+            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
+
+            mockPrisma.user.findFirst.mockResolvedValue(null)
+
+            await expect(service.deleteMe(payload)).rejects.toThrow(BaseException)
+            await expect(service.deleteMe(payload)).rejects.toThrow(USER_ERROR.NOT_FOUND.message)
+        })
+
+        it('should throw exception if user is already deleted', async () => {
+            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
+            const deletedUser = {
+                id: 1,
+                email: 'test@example.com',
+                loginId: 'testuser',
+                name: 'Test User',
+                status: UserStatus.ACTIVE,
+                isDeleted: true,
+                deletedAt: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+
+            mockPrisma.user.findFirst.mockResolvedValue(deletedUser)
+
+            await expect(service.deleteMe(payload)).rejects.toThrow(BaseException)
+            await expect(service.deleteMe(payload)).rejects.toThrow(USER_ERROR.ALREADY_DELETED.message)
         })
     })
 })
