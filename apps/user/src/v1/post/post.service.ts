@@ -1,7 +1,7 @@
 import { CursorPaginationResDto, OffsetPaginationResDto } from '@libs/common/dto/pagination-res.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { POST_ERROR } from '@libs/common/exception/error.code'
-import { JwtPayload } from '@libs/common/utils/jwt.util'
+import { type JwtPayload } from '@libs/common/utils/jwt.util'
 import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { Inject, Injectable } from '@nestjs/common'
 import { PostStatus } from '@prisma/client'

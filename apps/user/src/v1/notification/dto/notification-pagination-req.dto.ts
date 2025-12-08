@@ -4,7 +4,7 @@ import { NotificationType } from '@prisma/client'
 import { IsBoolean, IsEnum, IsOptional } from 'class-validator'
 import { Transform } from 'class-transformer'
 
-export class NotificationCursorPaginationReqDto extends CursorPaginationReqDto {
+export class NotificationPaginationReqDto extends CursorPaginationReqDto {
     @ApiProperty({ type: Boolean, required: false, description: '읽음 여부 필터', example: false })
     @IsOptional()
     @Transform(({ value }) => value === 'true' || value === true)

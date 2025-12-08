@@ -1,19 +1,40 @@
 model Notification {
-    id        Int              @id @default(autoincrement())
-    userId    Int
-    title     String           @db.VarChar(100)
-    content   String           @db.VarChar(500)
-    type      NotificationType
-    isRead    Boolean          @default(false)
-    readAt    DateTime?
+    id      Int              @id @default(autoincrement())
+    userId  Int?             @map("user_id")
+    user    User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+    title   String           @map("title") @db.VarChar(100)
+    content String           @map("content") @db.VarChar(500)
+    type    NotificationType @map("type")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    user User @relation(fields: [userId], references: [id])
+    createdAt        DateTime           @default(now()) @map("created_at")
+    createdBy        Int                @map("created_by")
+    updatedAt        DateTime?          @updatedAt @map("updated_at")
+    updatedBy        Int?               @map("updated_by")
+    isDeleted        Boolean?           @default(false) @map("is_deleted")
+    deletedAt        DateTime?          @map("deleted_at")
+    deletedBy        Int?               @map("deleted_by")
+    NotificationRead NotificationRead[]
 
     @@index([userId, createdAt])
-    @@index([userId, isRead])
     @@map("notification")
+    @@schema("public")
+}
+
+model NotificationRead {
+    id             Int          @id @default(autoincrement())
+    notificationId Int          @map("notification_id")
+    notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+    userId         Int          @map("user_id")
+    user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime  @default(now()) @map("created_at")
+    createdBy Int       @map("created_by")
+    updatedAt DateTime? @updatedAt @map("updated_at")
+    updatedBy Int?      @map("updated_by")
+    isDeleted Boolean?  @default(false) @map("is_deleted")
+    deletedAt DateTime? @map("deleted_at")
+    deletedBy Int?      @map("deleted_by")
+
+    @@map("notification_read")
     @@schema("public")
 }

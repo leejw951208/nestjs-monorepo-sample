@@ -14,6 +14,7 @@ import * as path from 'path'
 import { JwtAccessGuard } from '../../../libs/common/src/guard/jwt-access.guard'
 import adminEnvConfig from './config/env/admin-env.config'
 import { validateAdminEnv } from './config/env/admin-env.validator'
+import { NotificationModule } from './v1/notification/notification.module'
 
 @Module({
     imports: [
@@ -44,7 +45,8 @@ import { validateAdminEnv } from './config/env/admin-env.validator'
             }
         ]),
         WinstonModule.forRootAsync(winstonModuleAsyncOptions),
-        PrismaModule
+        PrismaModule,
+        NotificationModule
     ],
     providers: [{ provide: APP_GUARD, useClass: JwtAccessGuard }]
 })

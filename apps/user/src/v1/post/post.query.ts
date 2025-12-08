@@ -1,4 +1,4 @@
-import { ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
+import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { Inject, Injectable } from '@nestjs/common'
 import { PostStatus, Prisma } from '@prisma/client'
 import { PostCursorPaginationReqDto } from './dto/post-cursor-pagination-req.dto'

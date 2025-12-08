@@ -15,7 +15,7 @@ export class UserResDto {
     @Expose()
     name: string
 
-    @ApiProperty({ required: true, description: '회원 상태', example: 'ACTIVE' })
+    @ApiProperty({ required: true, enum: UserStatus, description: '회원 상태', example: 'ACTIVE' })
     @Expose()
     status: UserStatus
 

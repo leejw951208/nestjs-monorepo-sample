@@ -1,11 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { NotificationService } from './notification.service'
-import { ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
+import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { NotificationQuery } from './notification.query'
 import { BaseException } from '@libs/common/exception/base.exception'
-import { NOTIFICATION_ERROR } from '@libs/common/exception/error.code'
-import { NotificationCursorPaginationReqDto } from './dto/notification-cursor-pagination-req.dto'
-import { JwtPayload } from '@libs/common/utils/jwt.util'
+import { NotificationPaginationReqDto } from './dto/notification-pagination-req.dto'
+import { type JwtPayload } from '@libs/common/utils/jwt.util'
 
 describe('NotificationService', () => {
     let service: NotificationService
@@ -22,7 +21,11 @@ describe('NotificationService', () => {
     }
 
     const mockNotificationQuery = {
-        getNotificationsCursor: jest.fn()
+        getNotifications: jest.fn(),
+        getNotification: jest.fn(),
+        readNotification: jest.fn(),
+        readAllNotifications: jest.fn(),
+        deleteNotification: jest.fn()
     }
 
     beforeEach(async () => {
@@ -50,7 +53,7 @@ describe('NotificationService', () => {
     describe('getMyNotifications', () => {
         it('should successfully get user notifications', async () => {
             const payload = { id: 1, jti: 'test-jti', type: 'ac' } as JwtPayload
-            const searchCondition: NotificationCursorPaginationReqDto = {
+            const searchCondition: NotificationPaginationReqDto = {
                 size: 10,
                 order: 'desc',
                 lastCursor: undefined,
@@ -64,23 +67,26 @@ describe('NotificationService', () => {
                     type: 'SYSTEM',
                     title: 'Test Notification',
                     content: 'Test Content',
-                    isRead: false,
-                    readAt: null,
-                    createdAt: new Date()
+                    createdAt: new Date(),
+                    NotificationRead: []
                 }
             ]
             const mockNextCursor = null
 
-            mockNotificationQuery.getNotificationsCursor.mockResolvedValue({
+            mockNotificationQuery.getNotifications.mockResolvedValue({
                 items: mockItems,
                 nextCursor: mockNextCursor
             })
 
-            const result = await service.getMyNotifications(payload, searchCondition)
+            const result = await service.getMyNotifications(payload.id, searchCondition)
 
             expect(result.data).toBeDefined()
+            expect(result.data[0].isRead).toBe(false)
             expect(result.nextCursor).toBe(mockNextCursor)
-            expect(mockNotificationQuery.getNotificationsCursor).toHaveBeenCalledWith(payload.id, searchCondition)
+            expect(mockNotificationQuery.getNotifications).toHaveBeenCalledWith({
+                pagination: { lastCursor: searchCondition.lastCursor, size: searchCondition.size, order: searchCondition.order },
+                searchCondition: { userId: payload.id, isRead: searchCondition.isRead, type: searchCondition.type }
+            })
         })
     })
 
@@ -94,27 +100,25 @@ describe('NotificationService', () => {
                 type: 'SYSTEM',
                 title: 'Test',
                 content: 'Test',
-                isRead: false,
-                readAt: null
+                NotificationRead: []
             }
 
-            mockPrisma.notification.findFirst.mockResolvedValue(notification)
+            mockNotificationQuery.getNotification.mockResolvedValue(notification)
 
-            const result = await service.getNotification(payload, notificationId)
+            const result = await service.getNotification(payload.id, notificationId)
 
             expect(result).toBeDefined()
-            expect(mockPrisma.notification.findFirst).toHaveBeenCalledWith({
-                where: { id: notificationId, userId: payload.id }
-            })
+            expect(result.isRead).toBe(false)
+            expect(mockNotificationQuery.getNotification).toHaveBeenCalledWith(notificationId, payload.id)
         })
 
         it('should throw exception if notification not found', async () => {
             const payload = { id: 1, jti: 'test-jti', type: 'ac' } as JwtPayload
             const notificationId = 999
 
-            mockPrisma.notification.findFirst.mockResolvedValue(null)
+            mockNotificationQuery.getNotification.mockResolvedValue(null)
 
-            await expect(service.getNotification(payload, notificationId)).rejects.toThrow(BaseException)
+            await expect(service.getNotification(payload.id, notificationId)).rejects.toThrow(BaseException)
         })
     })
 
@@ -128,32 +132,37 @@ describe('NotificationService', () => {
                 type: 'SYSTEM',
                 title: 'Test',
                 content: 'Test',
-                isRead: false,
-                readAt: null
+                NotificationRead: []
             }
 
-            mockPrisma.notification.findFirst.mockResolvedValue(notification)
-            mockPrisma.notification.update.mockResolvedValue({
-                ...notification,
-                isRead: true,
-                readAt: new Date()
-            })
+            mockNotificationQuery.getNotification.mockResolvedValue(notification)
+            mockNotificationQuery.readNotification.mockResolvedValue(undefined)
 
-            await service.updateNotification(payload, notificationId, { isRead: true })
+            await service.updateNotification(payload.id, notificationId)
 
-            expect(mockPrisma.notification.findFirst).toHaveBeenCalledWith({
-                where: { id: notificationId, userId: payload.id }
-            })
-            expect(mockPrisma.notification.update).toHaveBeenCalled()
+            expect(mockNotificationQuery.getNotification).toHaveBeenCalledWith(notificationId, payload.id)
+            expect(mockNotificationQuery.readNotification).toHaveBeenCalledWith(payload.id, notificationId)
         })
 
         it('should throw exception if notification not found', async () => {
             const payload = { id: 1, jti: 'test-jti', type: 'ac' } as JwtPayload
             const notificationId = 999
 
-            mockPrisma.notification.findFirst.mockResolvedValue(null)
+            mockNotificationQuery.getNotification.mockResolvedValue(null)
 
-            await expect(service.updateNotification(payload, notificationId, { isRead: true })).rejects.toThrow(BaseException)
+            await expect(service.updateNotification(payload.id, notificationId)).rejects.toThrow(BaseException)
+        })
+    })
+
+    describe('bulkUpdateNotifications', () => {
+        it('should successfully mark all unread notifications as read', async () => {
+            const payload = { id: 1, jti: 'test-jti', type: 'ac' } as JwtPayload
+
+            mockNotificationQuery.readAllNotifications.mockResolvedValue(undefined)
+
+            await service.bulkUpdateNotifications(payload.id)
+
+            expect(mockNotificationQuery.readAllNotifications).toHaveBeenCalledWith(payload.id)
         })
     })
 
@@ -166,59 +175,21 @@ describe('NotificationService', () => {
                 userId: payload.id
             }
 
-            mockPrisma.notification.findFirst.mockResolvedValue(notification)
-            mockPrisma.notification.delete = jest.fn().mockResolvedValue(notification)
+            mockNotificationQuery.getNotification.mockResolvedValue(notification)
+            mockNotificationQuery.deleteNotification.mockResolvedValue(undefined)
 
-            await service.deleteNotification(payload, notificationId)
+            await service.deleteNotification(payload.id, notificationId)
 
-            expect(mockPrisma.notification.delete).toHaveBeenCalledWith({
-                where: { id: notificationId }
-            })
+            expect(mockNotificationQuery.deleteNotification).toHaveBeenCalledWith({ id: notificationId })
         })
 
         it('should throw exception if notification not found', async () => {
             const payload = { id: 1, jti: 'test-jti', type: 'ac' } as JwtPayload
             const notificationId = 999
 
-            mockPrisma.notification.findFirst.mockResolvedValue(null)
+            mockNotificationQuery.getNotification.mockResolvedValue(null)
 
-            await expect(service.deleteNotification(payload, notificationId)).rejects.toThrow(BaseException)
-        })
-    })
-
-    describe('bulkUpdateNotifications', () => {
-        it('should successfully mark all unread notifications as read', async () => {
-            const payload = { id: 1, jti: 'test-jti', type: 'ac' } as JwtPayload
-
-            mockPrisma.notification.updateMany.mockResolvedValue({ count: 5 })
-
-            const result = await service.bulkUpdateNotifications(payload, { isRead: true })
-
-            expect(result.updatedCount).toBe(5)
-            expect(mockPrisma.notification.updateMany).toHaveBeenCalled()
-        })
-
-        it('should handle case with no unread notifications', async () => {
-            const payload = { id: 1, jti: 'test-jti', type: 'ac' } as JwtPayload
-
-            mockPrisma.notification.updateMany.mockResolvedValue({ count: 0 })
-
-            const result = await service.bulkUpdateNotifications(payload, { isRead: true })
-
-            expect(result.updatedCount).toBe(0)
-            expect(mockPrisma.notification.updateMany).toHaveBeenCalled()
-        })
-
-        it('should update specific notifications by ids', async () => {
-            const payload = { id: 1, jti: 'test-jti', type: 'ac' } as JwtPayload
-            const ids = [1, 2, 3]
-
-            mockPrisma.notification.updateMany.mockResolvedValue({ count: 3 })
-
-            const result = await service.bulkUpdateNotifications(payload, { isRead: true, ids })
-
-            expect(result.updatedCount).toBe(3)
-            expect(mockPrisma.notification.updateMany).toHaveBeenCalled()
+            await expect(service.deleteNotification(payload.id, notificationId)).rejects.toThrow(BaseException)
         })
     })
 })

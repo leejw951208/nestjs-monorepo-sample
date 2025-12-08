@@ -1,7 +1,7 @@
 import { BaseException } from '@libs/common/exception/base.exception'
 import { AUTH_ERROR } from '@libs/common/exception/error.code'
 import { Inject, Injectable } from '@nestjs/common'
-import { ConfigType } from '@nestjs/config'
+import { type ConfigType } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import { Admin, User } from '@prisma/client'
 import commonEnvConfig from '../config/env/common-env.config'

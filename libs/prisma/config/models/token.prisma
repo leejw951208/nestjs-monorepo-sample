@@ -2,8 +2,9 @@ model Token {
     id        Int       @id @default(autoincrement())
     tokenHash String    @map("token_hash")
     tokenType TokenType @map("token_type")
-    owner     Owner     @map("owner")
+    owner     Owner     @default(USER) @map("owner")
     ownerId   Int       @map("owner_id")
+
     createdAt DateTime  @default(now()) @map("created_at")
     createdBy Int       @map("created_by")
     updatedAt DateTime? @updatedAt @map("updated_at")

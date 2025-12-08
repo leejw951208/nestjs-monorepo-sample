@@ -3,7 +3,7 @@ import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston'
 import { Logger } from 'winston'
-import { extendedPrismaClient, ExtendedPrismaClient, PRISMA_CLIENT } from './prisma.factory'
+import { extendedPrismaClient, type ExtendedPrismaClient, PRISMA_CLIENT } from './prisma.factory'
 import { CommonModule } from '@libs/common/common.module'
 
 @Global()

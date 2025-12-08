@@ -1,7 +1,7 @@
 import { CurrentUser } from '@libs/common/decorator/jwt-payload.decorator'
 import { Public } from '@libs/common/decorator/public.decorator'
 import { CursorPaginationResDto, OffsetPaginationResDto } from '@libs/common/dto/pagination-res.dto'
-import { JwtPayload } from '@libs/common/utils/jwt.util'
+import { type JwtPayload } from '@libs/common/utils/jwt.util'
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { PostCreateDto } from './dto/post-create.dto'
@@ -52,7 +52,10 @@ export class PostController {
     @ApiResponse({ status: 200, description: '성공' })
     @ApiResponse({ status: 401, description: '인증 실패' })
     @Get('me/offset')
-    async getMyPostsOffset(@CurrentUser() payload: JwtPayload, @Query() query: PostOffsetPaginationReqDto): Promise<OffsetPaginationResDto<PostResDto>> {
+    async getMyPostsOffset(
+        @CurrentUser() payload: JwtPayload,
+        @Query() query: PostOffsetPaginationReqDto
+    ): Promise<OffsetPaginationResDto<PostResDto>> {
         return this.service.getMyPostsOffset(payload, query)
     }
 
@@ -61,7 +64,10 @@ export class PostController {
     @ApiResponse({ status: 200, description: '성공' })
     @ApiResponse({ status: 401, description: '인증 실패' })
     @Get('me/cursor')
-    async getMyPostsCursor(@CurrentUser() payload: JwtPayload, @Query() query: PostCursorPaginationReqDto): Promise<CursorPaginationResDto<PostResDto>> {
+    async getMyPostsCursor(
+        @CurrentUser() payload: JwtPayload,
+        @Query() query: PostCursorPaginationReqDto
+    ): Promise<CursorPaginationResDto<PostResDto>> {
         return this.service.getMyPostsCursor(payload, query)
     }
 

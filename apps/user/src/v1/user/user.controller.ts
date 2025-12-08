@@ -1,5 +1,5 @@
 import { CurrentUser } from '@libs/common/decorator/jwt-payload.decorator'
-import { JwtPayload } from '@libs/common/utils/jwt.util'
+import { type JwtPayload } from '@libs/common/utils/jwt.util'
 import { Body, Controller, Delete, Get, Patch } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { UserResDto } from './dto/user-res.dto'

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { AuthService } from './auth.service'
-import { ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
+import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { CACHE_MANAGER } from '@nestjs/cache-manager'
 import { BcryptUtil } from '@libs/common/utils/bcrypt.util'
 import { JwtUtil } from '@libs/common/utils/jwt.util'

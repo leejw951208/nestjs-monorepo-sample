@@ -1,41 +1,122 @@
-import { ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
+import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { Inject, Injectable } from '@nestjs/common'
-import { Prisma } from '@prisma/client'
-import { NotificationCursorPaginationReqDto } from './dto/notification-cursor-pagination-req.dto'
+import { NotificationType, Prisma } from '@prisma/client'
+import { NotificationPaginationReqDto } from './dto/notification-pagination-req.dto'
+
+interface NotificationsCursorParams {
+    pagination: {
+        lastCursor?: number
+        size: number
+        order?: 'asc' | 'desc'
+    }
+    searchCondition: {
+        userId: number
+        isRead?: boolean
+        type?: NotificationType
+    }
+}
 
 @Injectable()
 export class NotificationQuery {
     constructor(@Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient) {}
 
-    async getNotificationsCursor(userId: number, searchCondition: NotificationCursorPaginationReqDto) {
-        const order = searchCondition.order === 'asc' ? 'asc' : 'desc'
+    async getNotifications(params: NotificationsCursorParams) {
+        const { pagination, searchCondition } = params
+        const order = pagination.order === 'asc' ? 'asc' : 'desc'
 
-        // Cursor 조건: lastCursor가 있으면 해당 ID 이후/이전 데이터 조회
-        const cursorCondition: Prisma.NotificationWhereInput = searchCondition.lastCursor
+        const cursorCondition: Prisma.NotificationWhereInput = pagination.lastCursor
             ? order === 'desc'
-                ? { id: { lt: searchCondition.lastCursor } }
-                : { id: { gt: searchCondition.lastCursor } }
+                ? { id: { lt: pagination.lastCursor } }
+                : { id: { gt: pagination.lastCursor } }
             : {}
 
         const where: Prisma.NotificationWhereInput = {
-            userId,
-            ...(searchCondition.isRead !== undefined && { isRead: searchCondition.isRead }),
-            ...(searchCondition.type && { type: searchCondition.type }),
-            ...cursorCondition
+            AND: [
+                {
+                    OR: [{ userId: searchCondition.userId }, { userId: null }]
+                },
+                {
+                    ...(searchCondition.isRead === true && { NotificationRead: { some: { userId: searchCondition.userId } } }),
+                    ...(searchCondition.isRead === false && { NotificationRead: { none: { userId: searchCondition.userId } } }),
+                    ...(searchCondition.type && { type: searchCondition.type }),
+                    ...cursorCondition
+                }
+            ]
         }
 
-        // size + 1개 조회하여 다음 페이지 존재 여부 확인
         const items = await this.prisma.notification.findMany({
             where,
+            include: {
+                NotificationRead: {
+                    where: { userId: searchCondition.userId },
+                    select: { createdAt: true }
+                }
+            },
             orderBy: { id: order },
-            take: searchCondition.size + 1
+            take: pagination.size + 1
         })
 
-        // 다음 페이지가 있는지 확인
-        const hasMore = items.length > searchCondition.size
-        const data = hasMore ? items.slice(0, searchCondition.size) : items
+        const hasMore = items.length > pagination.size
+        const data = hasMore ? items.slice(0, pagination.size) : items
         const nextCursor = hasMore && data.length > 0 ? data[data.length - 1].id : null
 
         return { items: data, nextCursor }
+    }
+
+    async getNotification(id: number, userId: number) {
+        return await this.prisma.notification.findFirst({
+            where: {
+                id,
+                OR: [{ userId }, { userId: null }]
+            },
+            include: {
+                NotificationRead: {
+                    where: { userId },
+                    select: { createdAt: true }
+                }
+            }
+        })
+    }
+
+    async readNotification(userId: number, notificationId: number): Promise<void> {
+        const exists = await this.prisma.notificationRead.findFirst({
+            where: { userId, notificationId }
+        })
+
+        if (exists) return
+
+        await this.prisma.notificationRead.create({
+            data: {
+                userId,
+                notificationId,
+                createdBy: userId
+            }
+        })
+    }
+
+    async readAllNotifications(userId: number): Promise<void> {
+        const unreadNotifications = await this.prisma.notification.findMany({
+            where: {
+                OR: [{ userId }, { userId: null }],
+                NotificationRead: {
+                    none: { userId }
+                }
+            },
+            select: { id: true }
+        })
+
+        if (unreadNotifications.length === 0) return
+
+        await this.prisma.notificationRead.createMany({
+            data: unreadNotifications.map((n) => ({
+                userId,
+                notificationId: n.id,
+                createdBy: userId
+            }))
+        })
+    }
+
+    async deleteNotification(where: Prisma.NotificationWhereUniqueInput): Promise<void> {
+        await this.prisma.notification.softDelete({ where })
     }
 }
