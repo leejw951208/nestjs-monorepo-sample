@@ -9,17 +9,12 @@ export class UserModel extends BaseModel implements User {
     phone: string
     status: UserStatus
 
-    private constructor(loginId: string, password: string, email: string, name: string, phone: string, status: UserStatus) {
+    constructor(partial: Partial<UserModel>) {
         super()
-        this.loginId = loginId
-        this.password = password
-        this.email = email
-        this.name = name
-        this.phone = phone
-        this.status = status
+        Object.assign(this, partial)
     }
 
     static create(input: Pick<User, 'loginId' | 'password' | 'email' | 'name' | 'phone' | 'status'>): UserModel {
-        return new UserModel(input.loginId, input.password, input.email, input.name, input.phone, input.status)
+        return new UserModel(input)
     }
 }

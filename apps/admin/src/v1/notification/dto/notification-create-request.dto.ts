@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger'
 import { NotificationType } from '@prisma/client'
 import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
 
-export class CreateNotificationReqDto {
+export class CreateNotificationRequestDto {
     @ApiProperty({
         description: '수신자 ID (특정 사용자에게 보낼 경우 입력, 전체 발송 시 생략)',
         required: false,

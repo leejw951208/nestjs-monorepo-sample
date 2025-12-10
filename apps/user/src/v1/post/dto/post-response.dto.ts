@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger'
 import { PostStatus } from '@prisma/client'
 import { Expose } from 'class-transformer'
 
-export class PostResDto {
+export class PostResponseDto {
     @ApiProperty({ required: true, description: '게시글 ID', example: 1 })
     @Expose()
     id: number

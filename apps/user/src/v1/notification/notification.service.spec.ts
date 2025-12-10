@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { NotificationService } from './notification.service'
 import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
-import { NotificationQuery } from './notification.query'
+import { NotificationRepository } from './notification.repository'
 import { BaseException } from '@libs/common/exception/base.exception'
-import { NotificationPaginationReqDto } from './dto/notification-pagination-req.dto'
+import { NotificationPaginationRequestDto } from './dto/notification-pagination-request.dto'
 import { type JwtPayload } from '@libs/common/utils/jwt.util'
 
 describe('NotificationService', () => {
     let service: NotificationService
     let prisma: ExtendedPrismaClient
-    let notificationQuery: NotificationQuery
+    let notificationQuery: NotificationRepository
 
     const mockPrisma = {
         notification: {
@@ -33,13 +33,13 @@ describe('NotificationService', () => {
             providers: [
                 NotificationService,
                 { provide: PRISMA_CLIENT, useValue: mockPrisma },
-                { provide: NotificationQuery, useValue: mockNotificationQuery }
+                { provide: NotificationRepository, useValue: mockNotificationQuery }
             ]
         }).compile()
 
         service = module.get<NotificationService>(NotificationService)
         prisma = module.get<ExtendedPrismaClient>(PRISMA_CLIENT)
-        notificationQuery = module.get<NotificationQuery>(NotificationQuery)
+        notificationQuery = module.get<NotificationRepository>(NotificationRepository)
     })
 
     afterEach(() => {
@@ -53,7 +53,7 @@ describe('NotificationService', () => {
     describe('getMyNotifications', () => {
         it('should successfully get user notifications', async () => {
             const payload = { id: 1, jti: 'test-jti', type: 'ac' } as JwtPayload
-            const searchCondition: NotificationPaginationReqDto = {
+            const searchCondition: NotificationPaginationRequestDto = {
                 size: 10,
                 order: 'desc',
                 lastCursor: undefined,

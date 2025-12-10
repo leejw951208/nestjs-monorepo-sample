@@ -4,14 +4,14 @@ import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.fa
 import { PostStatus } from '@prisma/client'
 import { type JwtPayload } from '@libs/common/utils/jwt.util'
 import { PostCreateDto } from './dto/post-create.dto'
-import { PostResDto } from './dto/post-res.dto'
-import { CursorPaginationResDto, OffsetPaginationResDto } from '@libs/common/dto/pagination-res.dto'
+import { PostResponseDto } from './dto/post-response.dto'
+import { CursorPaginationResDto, OffsetPaginationResDto } from '@libs/common/dto/pagination-response.dto'
 import { PostUpdateDto } from './dto/post-update.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { POST_ERROR } from '@libs/common/exception/error.code'
 import { PostQuery } from './post.query'
-import { PostOffsetPaginationReqDto } from './dto/post-offset-pagination-req.dto'
-import { PostCursorPaginationReqDto } from './dto/post-cursor-pagination-req.dto'
+import { PostOffsetPaginationReqDto } from './dto/post-offset-pagination-request.dto'
+import { PostCursorPaginationReqDto } from './dto/post-cursor-pagination-request.dto'
 
 describe('PostService', () => {
     let service: PostService
@@ -84,7 +84,7 @@ describe('PostService', () => {
                     createdBy: payload.id
                 }
             })
-            expect(result).toBeInstanceOf(PostResDto)
+            expect(result).toBeInstanceOf(PostResponseDto)
             expect(result.id).toBe(createdPost.id)
         })
     })
@@ -152,7 +152,7 @@ describe('PostService', () => {
                 data: { viewCount: { increment: 1 } },
                 select: { viewCount: true }
             })
-            expect(result).toBeInstanceOf(PostResDto)
+            expect(result).toBeInstanceOf(PostResponseDto)
             expect(result.viewCount).toBe(1)
         })
 

@@ -5,16 +5,7 @@ import { type ConfigType } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import { Admin, User } from '@prisma/client'
 import commonEnvConfig from '../config/env/common-env.config'
-
-type Aud = 'admin' | 'api'
-
-export interface JwtPayload {
-    id: number // pk
-    type: 'ac' | 're' // 토큰 타입
-    aud: Aud // 토큰 수신자
-    jti: string // 토큰 고유 값
-    issuer: string // 토큰 발급자
-}
+import { Aud, JwtPayload } from '../type/jwt-payload.type'
 
 @Injectable()
 export class JwtUtil {
@@ -59,7 +50,7 @@ export class JwtUtil {
     }
 
     async verify(token: string, type: 'ac' | 're'): Promise<JwtPayload> {
-        const payload = await this.jwtService.verifyAsync(token, {
+        const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
             secret: this.jwtSecretKey
         })
 

@@ -1,7 +1,6 @@
 import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { Inject, Injectable } from '@nestjs/common'
 import { NotificationType, Prisma } from '@prisma/client'
-import { NotificationPaginationReqDto } from './dto/notification-pagination-req.dto'
 
 interface NotificationsCursorParams {
     pagination: {
@@ -17,7 +16,7 @@ interface NotificationsCursorParams {
 }
 
 @Injectable()
-export class NotificationQuery {
+export class NotificationRepository {
     constructor(@Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient) {}
 
     async getNotifications(params: NotificationsCursorParams) {

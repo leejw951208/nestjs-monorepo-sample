@@ -8,7 +8,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt'
 import { BaseException } from '../exception/base.exception'
 import { AUTH_ERROR } from '../exception/error.code'
 import { BcryptUtil } from '../utils/bcrypt.util'
-import { JwtPayload } from '../utils/jwt.util'
+import { JwtPayload } from '../type/jwt-payload.type'
 
 /**
  * JWT 인증 전략 - passport-jwt를 사용한 JWT 토큰 기반 인증

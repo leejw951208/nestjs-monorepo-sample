@@ -2,12 +2,12 @@ import { CurrentUser } from '@libs/common/decorator/jwt-payload.decorator'
 import { type JwtPayload } from '@libs/common/utils/jwt.util'
 import { Body, Controller, Get, Post, Query } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { CreateNotificationReqDto } from './dto/notification-create-req.dto'
-import { NotificationPaginationReqDto } from './dto/notification-pagination-req.dto'
-import { NotificationResDto } from './dto/notification-res.dto'
+import { CreateNotificationRequestDto } from './dto/notification-create-request.dto'
+import { NotificationPaginationRequestDto } from './dto/notification-pagination-request.dto'
+import { NotificationResponseDto } from './dto/notification-response.dto'
 import { NotificationService } from './notification.service'
-import { ApiOffsetPageOkResponse } from '@libs/common/decorator/api-page-ok-response.decorator'
-import { OffsetPaginationResDto } from '@libs/common/dto/pagination-res.dto'
+import { ApiOkOffsetPaginationResponse } from '@libs/common/decorator/api-page-ok-response.decorator'
+import { OffsetPaginationResDto } from '@libs/common/dto/pagination-response.dto'
 
 @ApiTags('Notification')
 @ApiBearerAuth()
@@ -17,14 +17,14 @@ export class NotificationController {
 
     @ApiOperation({ summary: '알림 발송' })
     @Post()
-    async createNotification(@CurrentUser() user: JwtPayload, @Body() dto: CreateNotificationReqDto): Promise<void> {
+    async createNotification(@CurrentUser() user: JwtPayload, @Body() dto: CreateNotificationRequestDto): Promise<void> {
         return await this.notificationService.createNotification(user.id, dto)
     }
 
     @ApiOperation({ summary: '알림 목록 조회' })
-    @ApiOffsetPageOkResponse({ type: NotificationResDto })
+    @ApiOkOffsetPaginationResponse({ type: NotificationResponseDto })
     @Get()
-    async getNotifications(@Query() dto: NotificationPaginationReqDto): Promise<OffsetPaginationResDto<NotificationResDto>> {
+    async getNotifications(@Query() dto: NotificationPaginationRequestDto): Promise<OffsetPaginationResDto<NotificationResponseDto>> {
         return await this.notificationService.getNotifications(dto)
     }
 }

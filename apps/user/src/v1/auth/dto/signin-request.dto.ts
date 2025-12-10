@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { IsNotEmpty, IsString } from 'class-validator'
 
-export class SigninReqDto {
+export class SigninRequestDto {
     @ApiProperty({ type: String, required: true, description: '로그인 아이디', example: 'testuser' })
     @IsNotEmpty({ message: '로그인 아이디는 필수입니다.' })
     @IsString({ message: '로그인 아이디는 문자열입니다.' })

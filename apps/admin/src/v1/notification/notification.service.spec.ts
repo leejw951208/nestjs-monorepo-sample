@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { NotificationType } from '@prisma/client'
-import { CreateNotificationReqDto } from './dto/notification-create-req.dto'
-import { NotificationPaginationReqDto } from './dto/notification-pagination-req.dto'
+import { CreateNotificationRequestDto } from './dto/notification-create-request.dto'
+import { NotificationPaginationRequestDto } from './dto/notification-pagination-request.dto'
 import { NotificationQuery } from './notification.query'
 import { NotificationService } from './notification.service'
 
@@ -34,7 +34,7 @@ describe('NotificationService', () => {
     describe('createNotification', () => {
         it('should create notification successfully', async () => {
             const adminId = 1
-            const dto: CreateNotificationReqDto = {
+            const dto: CreateNotificationRequestDto = {
                 title: 'Test',
                 content: 'Test Content',
                 type: NotificationType.SYSTEM
@@ -55,7 +55,7 @@ describe('NotificationService', () => {
 
     describe('getNotifications', () => {
         it('should return list of notifications', async () => {
-            const dto: NotificationPaginationReqDto = {
+            const dto: NotificationPaginationRequestDto = {
                 page: 1,
                 size: 10,
                 order: 'desc'

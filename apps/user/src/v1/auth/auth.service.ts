@@ -11,12 +11,12 @@ import { type Cache } from 'cache-manager'
 import { plainToInstance } from 'class-transformer'
 import { randomUUID } from 'crypto'
 import { ClsService } from 'nestjs-cls'
-import { UserResDto } from '../user/dto/user-res.dto'
-import { RefreshTokenResDto } from './dto/refresh-token-res.dto'
-import { ResetPasswordReqDto } from './dto/reset-password-req.dto'
-import { SigninReqDto } from './dto/signin-req.dto'
-import { SigninResDto } from './dto/signin-res.dto'
-import { SignupReqDto } from './dto/signup-req.dto'
+import { UserResponseDto } from '../user/dto/user-response.dto'
+import { RefreshTokenResponseDto } from './dto/refresh-token-response.dto'
+import { ResetPasswordRequestDto } from './dto/reset-password-request.dto'
+import { SigninRequestDto } from './dto/signin-request.dto'
+import { SigninResponseDto } from './dto/signin-response.dto'
+import { SignupRequestDto } from './dto/signup-request.dto'
 
 @Injectable()
 export class AuthService {
@@ -29,7 +29,7 @@ export class AuthService {
         private readonly cls: ClsService
     ) {}
 
-    async signup(reqDto: SignupReqDto): Promise<void> {
+    async signup(reqDto: SignupRequestDto): Promise<void> {
         // 로그인 아이디 중복 검사
         const foundUsers = await this.prisma.user.findMany({
             where: { OR: [{ loginId: reqDto.loginId }, { email: reqDto.email }] },
@@ -50,7 +50,7 @@ export class AuthService {
         await this.prisma.user.create({ data: createdUser })
     }
 
-    async signin(reqDto: SigninReqDto): Promise<{ resDto: SigninResDto; refreshToken: string }> {
+    async signin(reqDto: SigninRequestDto): Promise<{ resDto: SigninResponseDto; refreshToken: string }> {
         // 회원 조회
         const foundUser = await this.prisma.user.findFirst({ where: { loginId: reqDto.loginId } })
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
@@ -71,10 +71,10 @@ export class AuthService {
         await this.cacheManager.set(`rt:${jti}`, hashedRefreshToken, 1000 * 60 * 60 * 24 * 7)
 
         const resDto = plainToInstance(
-            SigninResDto,
+            SigninResponseDto,
             {
                 accessToken,
-                user: plainToInstance(UserResDto, foundUser, { excludeExtraneousValues: true })
+                user: plainToInstance(UserResponseDto, foundUser, { excludeExtraneousValues: true })
             },
             { excludeExtraneousValues: true }
         )
@@ -94,7 +94,7 @@ export class AuthService {
         await this.cacheManager.del(`rt:${payload.jti}`)
     }
 
-    async refreshToken(refreshToken: string): Promise<{ resDto: RefreshTokenResDto; refreshToken: string }> {
+    async refreshToken(refreshToken: string): Promise<{ resDto: RefreshTokenResponseDto; refreshToken: string }> {
         // 토큰 검증 및 페이로드 추출
         const payload = await this.jwtUtil.verify(refreshToken, 're')
 
@@ -125,12 +125,12 @@ export class AuthService {
         await this.cacheManager.set(`rt:${jti}`, hashedNewRefreshToken, 1000 * 60 * 60 * 24 * 7)
 
         return {
-            resDto: plainToInstance(RefreshTokenResDto, { accessToken: newAccessToken }),
+            resDto: plainToInstance(RefreshTokenResponseDto, { accessToken: newAccessToken }),
             refreshToken: newRefreshToken
         }
     }
 
-    async resetPassword(reqDto: ResetPasswordReqDto): Promise<void> {
+    async resetPassword(reqDto: ResetPasswordRequestDto): Promise<void> {
         // 이름과 아이디로 회원 조회
         const foundUser = await this.prisma.user.findFirst({
             where: {

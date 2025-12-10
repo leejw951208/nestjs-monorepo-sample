@@ -7,7 +7,7 @@ import { JwtUtil } from '@libs/common/utils/jwt.util'
 import { ClsService } from 'nestjs-cls'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { USER_ERROR } from '@libs/common/exception/error.code'
-import { ResetPasswordReqDto } from './dto/reset-password-req.dto'
+import { ResetPasswordRequestDto } from './dto/reset-password-request.dto'
 import { UserStatus } from '@prisma/client'
 
 describe('AuthService', () => {
@@ -269,7 +269,7 @@ describe('AuthService', () => {
 
     describe('resetPassword', () => {
         it('should successfully reset password', async () => {
-            const reqDto: ResetPasswordReqDto = {
+            const reqDto: ResetPasswordRequestDto = {
                 loginId: 'testuser',
                 name: 'Test User',
                 newPassword: 'newpass1234'
@@ -309,7 +309,7 @@ describe('AuthService', () => {
         })
 
         it('should throw exception if user not found', async () => {
-            const reqDto: ResetPasswordReqDto = {
+            const reqDto: ResetPasswordRequestDto = {
                 loginId: 'testuser',
                 name: 'Test User',
                 newPassword: 'newpass1234'
@@ -322,7 +322,7 @@ describe('AuthService', () => {
         })
 
         it('should throw exception if user verification fails (wrong name)', async () => {
-            const reqDto: ResetPasswordReqDto = {
+            const reqDto: ResetPasswordRequestDto = {
                 loginId: 'testuser',
                 name: 'Wrong Name',
                 newPassword: 'newpass1234'
@@ -335,7 +335,7 @@ describe('AuthService', () => {
         })
 
         it('should not reset password for deleted users', async () => {
-            const reqDto: ResetPasswordReqDto = {
+            const reqDto: ResetPasswordRequestDto = {
                 loginId: 'testuser',
                 name: 'Test User',
                 newPassword: 'newpass1234'

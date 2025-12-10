@@ -1,15 +1,15 @@
-import { CursorPaginationResDto, OffsetPaginationResDto } from '@libs/common/dto/pagination-res.dto'
+import { CursorPaginationResDto, OffsetPaginationResDto } from '@libs/common/dto/pagination-response.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { POST_ERROR } from '@libs/common/exception/error.code'
-import { type JwtPayload } from '@libs/common/utils/jwt.util'
+import { type JwtPayload } from '@libs/common/type/jwt-payload.type'
 import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { Inject, Injectable } from '@nestjs/common'
 import { PostStatus } from '@prisma/client'
 import { plainToInstance } from 'class-transformer'
 import { PostCreateDto } from './dto/post-create.dto'
-import { PostCursorPaginationReqDto } from './dto/post-cursor-pagination-req.dto'
-import { PostOffsetPaginationReqDto } from './dto/post-offset-pagination-req.dto'
-import { PostResDto } from './dto/post-res.dto'
+import { PostCursorPaginationReqDto } from './dto/post-cursor-pagination-request.dto'
+import { PostOffsetPaginationReqDto } from './dto/post-offset-pagination-request.dto'
+import { PostResponseDto } from './dto/post-response.dto'
 import { PostUpdateDto } from './dto/post-update.dto'
 import { PostQuery } from './post.query'
 
@@ -20,8 +20,7 @@ export class PostService {
         private readonly postQuery: PostQuery
     ) {}
 
-    async savePost(payload: JwtPayload, reqDto: PostCreateDto): Promise<PostResDto> {
-        const userId = payload.id
+    async savePost(userId: number, reqDto: PostCreateDto): Promise<PostResponseDto> {
         const createdPost = await this.prisma.post.create({
             data: {
                 title: reqDto.title,
@@ -32,13 +31,13 @@ export class PostService {
             }
         })
 
-        return plainToInstance(PostResDto, createdPost, { excludeExtraneousValues: true })
+        return plainToInstance(PostResponseDto, createdPost, { excludeExtraneousValues: true })
     }
 
-    async getPost(payload: JwtPayload, postId: number): Promise<PostResDto> {
+    async getPost(id: number): Promise<PostResponseDto> {
         const post = await this.prisma.post.findFirst({
             where: {
-                id: postId,
+                id,
                 isDeleted: false
             }
         })
@@ -50,52 +49,45 @@ export class PostService {
         // 조회수 증가 (soft delete 체크 포함)
         const updatedPost = await this.prisma.post.update({
             where: {
-                id: postId,
+                id,
                 isDeleted: false
             },
             data: { viewCount: { increment: 1 } },
             select: { viewCount: true }
         })
 
-        return plainToInstance(PostResDto, { ...post, viewCount: updatedPost.viewCount }, { excludeExtraneousValues: true })
+        return plainToInstance(PostResponseDto, { ...post, viewCount: updatedPost.viewCount }, { excludeExtraneousValues: true })
     }
 
-    async getPostsOffset(searchCondition: PostOffsetPaginationReqDto): Promise<OffsetPaginationResDto<PostResDto>> {
+    async getPostsOffset(searchCondition: PostOffsetPaginationReqDto): Promise<OffsetPaginationResDto<PostResponseDto>> {
         const { items, totalCount } = await this.postQuery.getPostsOffset(searchCondition)
-        return new OffsetPaginationResDto(
-            plainToInstance(PostResDto, items, { excludeExtraneousValues: true }),
-            searchCondition.page,
+        return new OffsetPaginationResDto(plainToInstance(PostResponseDto, items, { excludeExtraneousValues: true }), {
+            page: searchCondition.page,
             totalCount
-        )
+        })
     }
 
-    async getPostsCursor(searchCondition: PostCursorPaginationReqDto): Promise<CursorPaginationResDto<PostResDto>> {
+    async getPostsCursor(searchCondition: PostCursorPaginationReqDto): Promise<CursorPaginationResDto<PostResponseDto>> {
         const { items, nextCursor } = await this.postQuery.getPostsCursor(searchCondition)
-        return new CursorPaginationResDto(plainToInstance(PostResDto, items, { excludeExtraneousValues: true }), nextCursor)
+        return new CursorPaginationResDto(plainToInstance(PostResponseDto, items, { excludeExtraneousValues: true }), nextCursor)
     }
 
-    async getMyPostsOffset(payload: JwtPayload, searchCondition: PostOffsetPaginationReqDto): Promise<OffsetPaginationResDto<PostResDto>> {
-        const userId = payload.id
+    async getMyPostsOffset(userId: number, searchCondition: PostOffsetPaginationReqDto): Promise<OffsetPaginationResDto<PostResponseDto>> {
         const { items, totalCount } = await this.postQuery.getPostsOffset(searchCondition, userId)
-        return new OffsetPaginationResDto(
-            plainToInstance(PostResDto, items, { excludeExtraneousValues: true }),
-            searchCondition.page,
+        return new OffsetPaginationResDto(plainToInstance(PostResponseDto, items, { excludeExtraneousValues: true }), {
+            page: searchCondition.page,
             totalCount
-        )
+        })
     }
 
-    async getMyPostsCursor(payload: JwtPayload, searchCondition: PostCursorPaginationReqDto): Promise<CursorPaginationResDto<PostResDto>> {
-        const userId = payload.id
+    async getMyPostsCursor(userId: number, searchCondition: PostCursorPaginationReqDto): Promise<CursorPaginationResDto<PostResponseDto>> {
         const { items, nextCursor } = await this.postQuery.getPostsCursor(searchCondition, userId)
-        return new CursorPaginationResDto(plainToInstance(PostResDto, items, { excludeExtraneousValues: true }), nextCursor)
+        return new CursorPaginationResDto(plainToInstance(PostResponseDto, items, { excludeExtraneousValues: true }), nextCursor)
     }
 
-    async updateMyPost(payload: JwtPayload, postId: number, reqDto: PostUpdateDto): Promise<void> {
-        const userId = payload.id
+    async updateMyPost(userId: number, id: number, reqDto: PostUpdateDto): Promise<void> {
         const post = await this.prisma.post.findFirst({
-            where: {
-                id: postId
-            }
+            where: { id, userId, isDeleted: false }
         })
 
         if (!post) {
@@ -107,7 +99,7 @@ export class PostService {
         }
 
         await this.prisma.post.update({
-            where: { id: postId },
+            where: { id, userId, isDeleted: false },
             data: {
                 ...reqDto,
                 updatedBy: userId
@@ -115,12 +107,9 @@ export class PostService {
         })
     }
 
-    async deleteMyPost(payload: JwtPayload, postId: number): Promise<void> {
-        const userId = payload.id
+    async deleteMyPost(userId: number, id: number): Promise<void> {
         const post = await this.prisma.post.findFirst({
-            where: {
-                id: postId
-            }
+            where: { id, userId, isDeleted: false }
         })
 
         if (!post) {
@@ -132,7 +121,7 @@ export class PostService {
         }
 
         await this.prisma.post.softDelete({
-            where: { id: postId }
+            where: { id, userId, isDeleted: false }
         })
     }
 }

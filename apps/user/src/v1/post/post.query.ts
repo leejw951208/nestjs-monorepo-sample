@@ -1,8 +1,8 @@
 import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { Inject, Injectable } from '@nestjs/common'
 import { PostStatus, Prisma } from '@prisma/client'
-import { PostCursorPaginationReqDto } from './dto/post-cursor-pagination-req.dto'
-import { PostOffsetPaginationReqDto } from './dto/post-offset-pagination-req.dto'
+import { PostCursorPaginationReqDto } from './dto/post-cursor-pagination-request.dto'
+import { PostOffsetPaginationReqDto } from './dto/post-offset-pagination-request.dto'
 
 @Injectable()
 export class PostQuery {

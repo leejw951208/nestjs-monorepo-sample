@@ -1,10 +1,11 @@
 import { CurrentUser } from '@libs/common/decorator/jwt-payload.decorator'
-import { type JwtPayload } from '@libs/common/utils/jwt.util'
-import { Body, Controller, Delete, Get, Patch } from '@nestjs/common'
+import { type JwtPayload } from '@libs/common/type/jwt-payload.type'
+import { Body, Controller, Delete, Get, Patch, Post } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { UserResDto } from './dto/user-res.dto'
+import { UserResponseDto } from './dto/user-response.dto'
 import { UserUpdateDto } from './dto/user-update.dto'
 import { UserService } from './user.service'
+import { UserCreateDto } from './dto/user-create.dto'
 
 @ApiTags('user')
 @ApiBearerAuth('JWT-Auth')
@@ -13,12 +14,23 @@ export class UserController {
     constructor(private readonly service: UserService) {}
 
     @ApiOperation({
+        summary: '회원 생성',
+        description: '회원 생성'
+    })
+    @ApiBody({ type: UserCreateDto })
+    @ApiOkResponse()
+    @Post()
+    async createUser(@Body() reqDto: UserCreateDto): Promise<void> {
+        // return await this.service.createUser(reqDto)
+    }
+
+    @ApiOperation({
         summary: '내 정보 조회',
         description: '내 정보 조회'
     })
-    @ApiOkResponse({ type: UserResDto })
+    @ApiOkResponse({ type: UserResponseDto })
     @Get('me')
-    async findMe(@CurrentUser() payload: JwtPayload): Promise<UserResDto> {
+    async findMe(@CurrentUser() payload: JwtPayload): Promise<UserResponseDto> {
         return await this.service.getMe(payload)
     }
 

@@ -1,10 +1,10 @@
-import { type JwtPayload } from '@libs/common/utils/jwt.util'
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { PassportStrategy } from '@nestjs/passport'
 import { ExtractJwt, Strategy } from 'passport-jwt'
 import { BaseException } from '../exception/base.exception'
 import { AUTH_ERROR } from '../exception/error.code'
+import { JwtPayload } from '../type/jwt-payload.type'
 
 /**
  * JWT 인증 전략 - passport-jwt를 사용한 JWT 토큰 기반 인증

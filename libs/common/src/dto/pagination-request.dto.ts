@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import { IsIn, IsInt, IsNotEmpty, IsOptional, Min } from 'class-validator'
 
-export class OffsetPaginationReqDto {
+export class OffsetPaginationRequestDto {
     @ApiProperty({ type: Number, required: true, description: '조회할 페이지 번호', example: 1 })
     @IsNotEmpty()
     @Type(() => Number)

@@ -1,13 +1,13 @@
 import { BaseException } from '@libs/common/exception/base.exception'
 import { USER_ERROR } from '@libs/common/exception/error.code'
-import { type JwtPayload } from '@libs/common/utils/jwt.util'
+import { type JwtPayload } from '@libs/common/type/jwt-payload.type'
 import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager'
 import { Inject, Injectable } from '@nestjs/common'
 import { type ConfigType } from '@nestjs/config'
 import { plainToInstance } from 'class-transformer'
 import userEnvConfig from '../../config/env/user-env.config'
-import { UserResDto } from './dto/user-res.dto'
+import { UserResponseDto } from './dto/user-response.dto'
 import { UserUpdateDto } from './dto/user-update.dto'
 
 @Injectable()
@@ -18,9 +18,9 @@ export class UserService {
         @Inject(userEnvConfig.KEY) private readonly userEnv: ConfigType<typeof userEnvConfig>
     ) {}
 
-    async getMe(payload: JwtPayload): Promise<UserResDto> {
+    async getMe(payload: JwtPayload): Promise<UserResponseDto> {
         const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id } })
-        return plainToInstance(UserResDto, foundUser, { excludeExtraneousValues: true })
+        return plainToInstance(UserResponseDto, foundUser, { excludeExtraneousValues: true })
     }
 
     async updateMe(payload: JwtPayload, reqDto: UserUpdateDto): Promise<void> {

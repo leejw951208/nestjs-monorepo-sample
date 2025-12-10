@@ -1,12 +1,12 @@
-import { ApiCursorPageOkResponse } from '@libs/common/decorator/api-page-ok-response.decorator'
+import { ApiOkCursorPaginationResponse } from '@libs/common/decorator/api-page-ok-response.decorator'
 import { CurrentUser } from '@libs/common/decorator/jwt-payload.decorator'
-import { CursorPaginationResDto } from '@libs/common/dto/pagination-res.dto'
-import { type JwtPayload } from '@libs/common/utils/jwt.util'
+import { CursorPaginationResDto } from '@libs/common/dto/pagination-response.dto'
+import { type JwtPayload } from '@libs/common/type/jwt-payload.type'
 import { Controller, Delete, Get, Param, ParseIntPipe, Patch, Query } from '@nestjs/common'
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
-import { NotificationPaginationReqDto } from './dto/notification-pagination-req.dto'
-import { NotificationResDto } from './dto/notification-res.dto'
+import { NotificationPaginationRequestDto } from './dto/notification-pagination-request.dto'
 import { NotificationService } from './notification.service'
+import { NotificationResponseDto } from './dto/notification-response.dto'
 
 @ApiTags('notifications')
 @ApiBearerAuth('JWT-Auth')
@@ -15,23 +15,23 @@ export class NotificationController {
     constructor(private readonly service: NotificationService) {}
 
     @ApiOperation({ summary: '내 알림 목록 조회', description: 'Cursor 기반 페이지네이션으로 알림 목록을 조회합니다.' })
-    @ApiCursorPageOkResponse({ type: NotificationResDto })
+    @ApiOkCursorPaginationResponse({ type: NotificationResponseDto })
     @Get()
     async getMyNotifications(
         @CurrentUser() payload: JwtPayload,
-        @Query() query: NotificationPaginationReqDto
-    ): Promise<CursorPaginationResDto<NotificationResDto>> {
+        @Query() query: NotificationPaginationRequestDto
+    ): Promise<CursorPaginationResDto<NotificationResponseDto>> {
         return await this.service.getMyNotifications(payload.id, query)
     }
 
     @ApiOperation({ summary: '알림 상세 조회', description: '특정 알림의 상세 정보를 조회합니다.' })
     @ApiParam({ name: 'id', description: '알림 ID', type: Number })
-    @ApiOkResponse({ type: NotificationResDto })
+    @ApiOkResponse({ type: NotificationResponseDto })
     @Get(':id')
     async getNotification(
         @CurrentUser() payload: JwtPayload,
         @Param('id', ParseIntPipe) notificationId: number
-    ): Promise<NotificationResDto> {
+    ): Promise<NotificationResponseDto> {
         return await this.service.getNotification(payload.id, notificationId)
     }
 

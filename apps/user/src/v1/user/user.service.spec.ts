@@ -6,7 +6,7 @@ import { UserStatus } from '@prisma/client'
 import userEnvConfig from '../../config/env/user-env.config'
 import { type ConfigType } from '@nestjs/config'
 import { type JwtPayload } from '@libs/common/utils/jwt.util'
-import { UserResDto } from './dto/user-res.dto'
+import { UserResponseDto } from './dto/user-response.dto'
 import { UserUpdateDto } from './dto/user-update.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { USER_ERROR } from '@libs/common/exception/error.code'
@@ -69,7 +69,7 @@ describe('UserService', () => {
             const result = await service.getMe(payload)
 
             expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { id: payload.id } })
-            expect(result).toBeInstanceOf(UserResDto)
+            expect(result).toBeInstanceOf(UserResponseDto)
             expect(result.id).toBe(user.id)
         })
     })

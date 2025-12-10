@@ -41,7 +41,7 @@ async function bootstrap() {
     await app.listen(port).then(() => {
         logger.log(
             `[User] App is running on port ${port} in ${nodeEnv} environment,
-                swagger: [http://localhost:${port}/api/v1/user/docs]
+                swagger: http://localhost:${port}/api/user/docs
             `
         )
     })

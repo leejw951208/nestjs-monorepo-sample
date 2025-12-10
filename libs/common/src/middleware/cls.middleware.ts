@@ -2,7 +2,6 @@ import { Injectable, NestMiddleware } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { NextFunction, Request, Response } from 'express'
 import { ClsService } from 'nestjs-cls'
-import { JwtPayload } from '../utils/jwt.util'
 
 @Injectable()
 export class CustomClsMiddleware implements NestMiddleware {
