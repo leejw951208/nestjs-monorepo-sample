@@ -1,6 +1,8 @@
 import { PRISMA_CLIENT, type ExtendedPrismaClient } from '@libs/prisma/prisma.factory'
+import { CACHE_MANAGER } from '@nestjs/cache-manager'
 import { Inject, Injectable } from '@nestjs/common'
 import { Prisma, User } from '@prisma/client'
+import { type Cache } from 'cache-manager'
 
 @Injectable()
 export class UserRepository {
@@ -11,6 +13,10 @@ export class UserRepository {
             ...param,
             where: { ...param.where, isDeleted }
         })
+    }
+
+    async createUser(param: Prisma.UserCreateArgs): Promise<User> {
+        return await this.prisma.user.create(param)
     }
 
     async updateUser(param: Prisma.UserUpdateArgs, isDeleted: boolean = false): Promise<User> {

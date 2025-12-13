@@ -7,6 +7,9 @@ import { Admin, User } from '@prisma/client'
 import commonEnvConfig from '../config/env/common-env.config'
 import { Aud, JwtPayload } from '../type/jwt-payload.type'
 
+// Export JwtPayload for external use
+export type { JwtPayload } from '../type/jwt-payload.type'
+
 @Injectable()
 export class JwtUtil {
     private readonly accessTokenExpiresIn: string

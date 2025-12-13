@@ -2,14 +2,19 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { AuthService } from './auth.service'
 import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { CACHE_MANAGER } from '@nestjs/cache-manager'
-import { BcryptUtil } from '@libs/common/utils/bcrypt.util'
-import { JwtUtil } from '@libs/common/utils/jwt.util'
+import { BcryptUtil } from '@libs/common/util/bcrypt.util'
+import { JwtUtil } from '@libs/common/util/jwt.util'
+import { OtpUtil } from '@libs/common/util/otp.util'
+import { EmailUtil } from '@libs/common/util/email.util'
 import { ClsService } from 'nestjs-cls'
 import { BaseException } from '@libs/common/exception/base.exception'
-import { USER_ERROR } from '@libs/common/exception/error.code'
-import { ResetPasswordRequestDto } from './dto/reset-password-request.dto'
+import { AUTH_ERROR, USER_ERROR } from '@libs/common/exception/error.code'
+import { PasswordResetConfirmRequestDto } from './dto/password-reset-confirm.request.dto'
+import { PasswordResetInitRequestDto } from './dto/password-reset-init.request.dto'
+import { PasswordResetVerifyRequestDto } from './dto/password-reset-verify.request.dto'
 import { UserStatus } from '@prisma/client'
 import { UserRepository } from '../user/user.repository'
+import { TokenService } from '../token/token.service'
 
 describe('AuthService', () => {
     let service: AuthService
@@ -42,10 +47,35 @@ describe('AuthService', () => {
         verify: jest.fn()
     }
 
+    const mockOtpUtil = {
+        generateOtp: jest.fn(),
+        generateResetToken: jest.fn(),
+        createOtpData: jest.fn(),
+        createOtpKey: jest.fn(),
+        createFlowKey: jest.fn(),
+        isExpired: jest.fn(),
+        verifyOtpCode: jest.fn(),
+        incrementAttempts: jest.fn(),
+        isMaxAttemptsReached: jest.fn()
+    }
+
+    const mockEmailUtil = {
+        normalize: jest.fn()
+    }
+
     const mockClsService = {}
 
     const mockUserRepository = {
-        findUser: jest.fn()
+        findUser: jest.fn(),
+        createUser: jest.fn(),
+        updateUser: jest.fn()
+    }
+
+    const mockTokenService = {
+        saveRefreshToken: jest.fn(),
+        getRefreshToken: jest.fn(),
+        deleteRefreshToken: jest.fn(),
+        deleteAllRefreshTokens: jest.fn()
     }
 
     beforeEach(async () => {
@@ -56,8 +86,11 @@ describe('AuthService', () => {
                 { provide: CACHE_MANAGER, useValue: mockCacheManager },
                 { provide: BcryptUtil, useValue: mockBcryptUtil },
                 { provide: JwtUtil, useValue: mockJwtUtil },
+                { provide: OtpUtil, useValue: mockOtpUtil },
+                { provide: EmailUtil, useValue: mockEmailUtil },
                 { provide: ClsService, useValue: mockClsService },
-                { provide: UserRepository, useValue: mockUserRepository }
+                { provide: UserRepository, useValue: mockUserRepository },
+                { provide: TokenService, useValue: mockTokenService }
             ]
         }).compile()
 
@@ -86,7 +119,7 @@ describe('AuthService', () => {
 
             mockUserRepository.findUser.mockResolvedValue(null)
             mockBcryptUtil.hash.mockResolvedValue(hashedPassword)
-            mockPrisma.user.create.mockResolvedValue({
+            mockUserRepository.createUser.mockResolvedValue({
                 id: 1,
                 ...reqDto,
                 password: hashedPassword,
@@ -99,7 +132,7 @@ describe('AuthService', () => {
                 where: { email: reqDto.email }
             })
             expect(bcryptUtil.hash).toHaveBeenCalledWith(reqDto.password)
-            expect(prisma.user.create).toHaveBeenCalled()
+            expect(mockUserRepository.createUser).toHaveBeenCalled()
         })
 
         it('should throw exception if email already exists', async () => {
@@ -137,7 +170,7 @@ describe('AuthService', () => {
             mockJwtUtil.createAccessToken.mockResolvedValue(accessToken)
             mockJwtUtil.createRefreshToken.mockResolvedValue(refreshToken)
             mockBcryptUtil.hash.mockResolvedValue(hashedRefreshToken)
-            mockCacheManager.set.mockResolvedValue(undefined)
+            mockTokenService.saveRefreshToken.mockResolvedValue(undefined)
 
             const result = await service.signin(reqDto)
 
@@ -145,7 +178,7 @@ describe('AuthService', () => {
             expect(result.refreshToken).toBe(refreshToken)
             expect(mockUserRepository.findUser).toHaveBeenCalledWith({ where: { email: reqDto.email } })
             expect(bcryptUtil.compare).toHaveBeenCalledWith(reqDto.password, user.password)
-            expect(mockCacheManager.set).toHaveBeenCalled()
+            expect(mockTokenService.saveRefreshToken).toHaveBeenCalled()
         })
 
         it('should throw exception if user not found', async () => {
@@ -183,12 +216,12 @@ describe('AuthService', () => {
 
             mockJwtUtil.verify.mockResolvedValue(payload)
             mockUserRepository.findUser.mockResolvedValue(user)
-            mockCacheManager.del.mockResolvedValue(undefined)
+            mockTokenService.deleteRefreshToken.mockResolvedValue(undefined)
 
             await service.signout(refreshToken)
 
             expect(mockJwtUtil.verify).toHaveBeenCalledWith(refreshToken, 're')
-            expect(mockCacheManager.del).toHaveBeenCalledWith(`rt:${payload.jti}`)
+            expect(mockTokenService.deleteRefreshToken).toHaveBeenCalledWith(user.id, payload.jti)
         })
     })
 
@@ -207,20 +240,20 @@ describe('AuthService', () => {
 
             mockJwtUtil.verify.mockResolvedValue(payload)
             mockUserRepository.findUser.mockResolvedValue(user)
-            mockCacheManager.get.mockResolvedValue(cachedToken)
+            mockTokenService.getRefreshToken.mockResolvedValue(cachedToken)
             mockBcryptUtil.compare.mockResolvedValue(true)
-            mockCacheManager.del.mockResolvedValue(undefined)
+            mockTokenService.deleteRefreshToken.mockResolvedValue(undefined)
             mockJwtUtil.createAccessToken.mockResolvedValue(newAccessToken)
             mockJwtUtil.createRefreshToken.mockResolvedValue(newRefreshToken)
             mockBcryptUtil.hash.mockResolvedValue(hashedNewRefreshToken)
-            mockCacheManager.set.mockResolvedValue(undefined)
+            mockTokenService.saveRefreshToken.mockResolvedValue(undefined)
 
             const result = await service.refreshToken(oldRefreshToken)
 
             expect(result.resDto.accessToken).toBe(newAccessToken)
             expect(result.refreshToken).toBe(newRefreshToken)
-            expect(mockCacheManager.del).toHaveBeenCalledWith(`rt:${payload.jti}`)
-            expect(mockCacheManager.set).toHaveBeenCalled()
+            expect(mockTokenService.deleteRefreshToken).toHaveBeenCalledWith(user.id, payload.jti)
+            expect(mockTokenService.saveRefreshToken).toHaveBeenCalled()
         })
 
         it('should throw exception if cached token not found', async () => {
@@ -230,7 +263,7 @@ describe('AuthService', () => {
 
             mockJwtUtil.verify.mockResolvedValue(payload)
             mockUserRepository.findUser.mockResolvedValue(user)
-            mockCacheManager.get.mockResolvedValue(null)
+            mockTokenService.getRefreshToken.mockResolvedValue(undefined)
 
             await expect(service.refreshToken(refreshToken)).rejects.toThrow(BaseException)
         })
@@ -243,89 +276,256 @@ describe('AuthService', () => {
 
             mockJwtUtil.verify.mockResolvedValue(payload)
             mockUserRepository.findUser.mockResolvedValue(user)
-            mockCacheManager.get.mockResolvedValue(cachedToken)
+            mockTokenService.getRefreshToken.mockResolvedValue(cachedToken)
             mockBcryptUtil.compare.mockResolvedValue(false)
 
             await expect(service.refreshToken(refreshToken)).rejects.toThrow(BaseException)
         })
     })
 
-    describe('resetPassword', () => {
-        it('should successfully reset password', async () => {
-            const reqDto: ResetPasswordRequestDto = {
+    describe('issueOtp', () => {
+        it('should successfully issue OTP', async () => {
+            const reqDto: PasswordResetInitRequestDto = {
+                email: 'test@example.com'
+            }
+            const normalizedEmail = 'test@example.com'
+            const user = {
+                id: 1,
                 email: 'test@example.com',
-                name: 'Test User',
+                name: 'Test User'
+            }
+            const otp = '123456'
+            const flowId = 'flow-id-123'
+            const otpData = {
+                otp,
+                flowId,
+                createdAt: Date.now(),
+                expiresAt: Date.now() + 5 * 60 * 1000,
+                attempts: 0
+            }
+
+            mockEmailUtil.normalize.mockReturnValue(normalizedEmail)
+            mockUserRepository.findUser.mockResolvedValue(user)
+            mockCacheManager.get.mockResolvedValue(0)
+            mockOtpUtil.generateOtp.mockReturnValue(otp)
+            mockOtpUtil.createOtpData.mockReturnValue(otpData)
+            mockOtpUtil.createOtpKey.mockReturnValue(`password-reset:otp:${user.id}`)
+            mockOtpUtil.createFlowKey.mockReturnValue(`password-reset:flow:${user.id}`)
+            mockCacheManager.set.mockResolvedValue(undefined)
+
+            await service.issueOtp(reqDto)
+
+            expect(mockEmailUtil.normalize).toHaveBeenCalledWith(reqDto.email)
+            expect(mockUserRepository.findUser).toHaveBeenCalledWith({
+                where: { email: normalizedEmail }
+            })
+            expect(mockOtpUtil.generateOtp).toHaveBeenCalled()
+        })
+
+        it('should not throw exception if user not found (email enumeration prevention)', async () => {
+            const reqDto: PasswordResetInitRequestDto = {
+                email: 'nonexistent@example.com'
+            }
+            const normalizedEmail = 'nonexistent@example.com'
+
+            mockEmailUtil.normalize.mockReturnValue(normalizedEmail)
+            mockUserRepository.findUser.mockResolvedValue(null)
+
+            // Should not throw - returns early for email enumeration prevention
+            await expect(service.issueOtp(reqDto)).resolves.not.toThrow()
+        })
+    })
+
+    describe('verifyOtp', () => {
+        it('should successfully verify OTP and return reset token', async () => {
+            const reqDto: PasswordResetVerifyRequestDto = {
+                email: 'test@example.com',
+                otp: '123456'
+            }
+            const normalizedEmail = 'test@example.com'
+            const user = { id: 1, email: normalizedEmail }
+            const flowId = 'flow-id-123'
+            const otpData = {
+                otp: '123456',
+                flowId,
+                createdAt: Date.now(),
+                expiresAt: Date.now() + 5 * 60 * 1000,
+                attempts: 0
+            }
+            const resetToken = 'reset-token-abc123'
+            const otpKey = `password-reset:otp:${user.id}`
+            const flowKey = `password-reset:flow:${user.id}`
+            const rateLimitKey = `rate-limit:password-verify:${user.id}`
+
+            mockEmailUtil.normalize.mockReturnValue(normalizedEmail)
+            mockUserRepository.findUser.mockResolvedValue(user)
+
+            // Use mockImplementation to handle different keys
+            mockCacheManager.get.mockImplementation((key: string) => {
+                if (key === rateLimitKey) return Promise.resolve(0)
+                if (key === otpKey) return Promise.resolve(JSON.stringify(otpData))
+                if (key === flowKey) return Promise.resolve(flowId)
+                return Promise.resolve(null)
+            })
+
+            mockOtpUtil.createOtpKey.mockReturnValue(otpKey)
+            mockOtpUtil.createFlowKey.mockReturnValue(flowKey)
+            mockOtpUtil.isExpired.mockReturnValue(false)
+            mockOtpUtil.verifyOtpCode.mockReturnValue(true)
+            mockOtpUtil.generateResetToken.mockReturnValue(resetToken)
+            mockCacheManager.del.mockResolvedValue(undefined)
+            mockCacheManager.set.mockResolvedValue(undefined)
+
+            const result = await service.verifyOtp(reqDto)
+
+            expect(result.resetToken).toBe(resetToken)
+        })
+
+        it('should throw exception if OTP expired', async () => {
+            const reqDto: PasswordResetVerifyRequestDto = {
+                email: 'test@example.com',
+                otp: '123456'
+            }
+            const normalizedEmail = 'test@example.com'
+            const user = { id: 1, email: normalizedEmail }
+            const otpKey = `password-reset:otp:${user.id}`
+            const rateLimitKey = `rate-limit:password-verify:${user.id}`
+
+            mockEmailUtil.normalize.mockReturnValue(normalizedEmail)
+            mockUserRepository.findUser.mockResolvedValue(user)
+
+            // Use mockImplementation to handle different keys
+            mockCacheManager.get.mockImplementation((key: string) => {
+                if (key === rateLimitKey) return Promise.resolve(0)
+                if (key === otpKey) return Promise.resolve(null) // OTP data not found
+                return Promise.resolve(null)
+            })
+
+            mockOtpUtil.createOtpKey.mockReturnValue(otpKey)
+
+            await expect(service.verifyOtp(reqDto)).rejects.toThrow(BaseException)
+            await expect(service.verifyOtp(reqDto)).rejects.toThrow(AUTH_ERROR.OTP_EXPIRED.message)
+        })
+
+        it('should throw exception if OTP is invalid', async () => {
+            const reqDto: PasswordResetVerifyRequestDto = {
+                email: 'test@example.com',
+                otp: '999999'
+            }
+            const normalizedEmail = 'test@example.com'
+            const user = { id: 1, email: normalizedEmail }
+            const flowId = 'flow-id-123'
+            const otpData = {
+                otp: '123456',
+                flowId,
+                createdAt: Date.now(),
+                expiresAt: Date.now() + 5 * 60 * 1000,
+                attempts: 0
+            }
+            const otpKey = `password-reset:otp:${user.id}`
+            const flowKey = `password-reset:flow:${user.id}`
+            const rateLimitKey = `rate-limit:password-verify:${user.id}`
+
+            mockEmailUtil.normalize.mockReturnValue(normalizedEmail)
+            mockUserRepository.findUser.mockResolvedValue(user)
+
+            // Use mockImplementation to handle different keys
+            mockCacheManager.get.mockImplementation((key: string) => {
+                if (key === rateLimitKey) return Promise.resolve(0)
+                if (key === otpKey) return Promise.resolve(JSON.stringify(otpData))
+                if (key === flowKey) return Promise.resolve(flowId)
+                return Promise.resolve(null)
+            })
+
+            mockOtpUtil.createOtpKey.mockReturnValue(otpKey)
+            mockOtpUtil.createFlowKey.mockReturnValue(flowKey)
+            mockOtpUtil.isExpired.mockReturnValue(false)
+            mockOtpUtil.verifyOtpCode.mockReturnValue(false)
+            mockOtpUtil.incrementAttempts.mockReturnValue({ ...otpData, attempts: 1 })
+            mockOtpUtil.isMaxAttemptsReached.mockReturnValue(false)
+            mockCacheManager.set.mockResolvedValue(undefined)
+
+            await expect(service.verifyOtp(reqDto)).rejects.toThrow(BaseException)
+            await expect(service.verifyOtp(reqDto)).rejects.toThrow(AUTH_ERROR.OTP_INVALID.message)
+        })
+    })
+
+    describe('resetPassword', () => {
+        it('should successfully reset password with valid reset token', async () => {
+            const reqDto: PasswordResetConfirmRequestDto = {
+                resetToken: 'valid-reset-token',
                 newPassword: 'newpass1234'
             }
+            const payload = { id: 1, flowId: 'flow-id-123' }
+            const flowId = 'flow-id-123'
             const user = {
                 id: 1,
                 email: 'test@example.com',
                 name: 'Test User',
-                password: 'oldhashedpassword',
-                status: UserStatus.ACTIVE,
-                isDeleted: false,
-                deletedAt: null,
-                createdAt: new Date(),
-                updatedAt: new Date()
+                password: 'oldhashedpassword'
             }
             const hashedPassword = 'newhashedpassword'
+            const flowKey = `password-reset:flow:${user.id}`
+            const tokenKey = `password-reset:token:${reqDto.resetToken}`
 
+            // Use mockImplementation to handle different keys
+            mockCacheManager.get.mockImplementation((key: string) => {
+                if (key === tokenKey) return Promise.resolve(JSON.stringify(payload))
+                if (key === flowKey) return Promise.resolve(flowId)
+                return Promise.resolve(null)
+            })
+
+            mockOtpUtil.createFlowKey.mockReturnValue(flowKey)
             mockUserRepository.findUser.mockResolvedValue(user)
             mockBcryptUtil.hash.mockResolvedValue(hashedPassword)
-            mockPrisma.user.update.mockResolvedValue({ ...user, password: hashedPassword })
+            mockCacheManager.del.mockResolvedValue(undefined)
+            mockUserRepository.updateUser.mockResolvedValue({ ...user, password: hashedPassword })
+            mockTokenService.deleteAllRefreshTokens.mockResolvedValue(undefined)
 
             await service.resetPassword(reqDto)
 
-            expect(mockUserRepository.findUser).toHaveBeenCalledWith({
-                where: {
-                    email: reqDto.email,
-                    name: reqDto.name
-                }
-            })
             expect(bcryptUtil.hash).toHaveBeenCalledWith(reqDto.newPassword)
-            expect(prisma.user.update).toHaveBeenCalledWith({
+            expect(mockUserRepository.updateUser).toHaveBeenCalledWith({
                 where: { id: user.id },
                 data: { password: hashedPassword }
             })
+            expect(mockTokenService.deleteAllRefreshTokens).toHaveBeenCalledWith(user.id)
+        })
+
+        it('should throw exception if reset token expired', async () => {
+            const reqDto: PasswordResetConfirmRequestDto = {
+                resetToken: 'expired-token',
+                newPassword: 'newpass1234'
+            }
+
+            // Mock cache.get returning null (token not found/expired)
+            mockCacheManager.get.mockResolvedValue(null)
+
+            await expect(service.resetPassword(reqDto)).rejects.toThrow(BaseException)
         })
 
         it('should throw exception if user not found', async () => {
-            const reqDto: ResetPasswordRequestDto = {
-                email: 'test@example.com',
-                name: 'Test User',
+            const reqDto: PasswordResetConfirmRequestDto = {
+                resetToken: 'valid-reset-token',
                 newPassword: 'newpass1234'
             }
+            const payload = { id: 1, flowId: 'flow-id-123' }
+            const flowId = 'flow-id-123'
+            const flowKey = `password-reset:flow:1`
+            const tokenKey = `password-reset:token:${reqDto.resetToken}`
 
+            // Use mockImplementation to handle different keys
+            mockCacheManager.get.mockImplementation((key: string) => {
+                if (key === tokenKey) return Promise.resolve(JSON.stringify(payload))
+                if (key === flowKey) return Promise.resolve(flowId)
+                return Promise.resolve(null)
+            })
+
+            mockOtpUtil.createFlowKey.mockReturnValue(flowKey)
             mockUserRepository.findUser.mockResolvedValue(null)
 
             await expect(service.resetPassword(reqDto)).rejects.toThrow(BaseException)
-            await expect(service.resetPassword(reqDto)).rejects.toThrow(USER_ERROR.VERIFICATION_FAILED.message)
-        })
-
-        it('should throw exception if user verification fails (wrong name)', async () => {
-            const reqDto: ResetPasswordRequestDto = {
-                email: 'test@example.com',
-                name: 'Wrong Name',
-                newPassword: 'newpass1234'
-            }
-
-            mockUserRepository.findUser.mockResolvedValue(null)
-
-            await expect(service.resetPassword(reqDto)).rejects.toThrow(BaseException)
-            await expect(service.resetPassword(reqDto)).rejects.toThrow(USER_ERROR.VERIFICATION_FAILED.message)
-        })
-
-        it('should not reset password for deleted users', async () => {
-            const reqDto: ResetPasswordRequestDto = {
-                email: 'test@example.com',
-                name: 'Test User',
-                newPassword: 'newpass1234'
-            }
-
-            mockUserRepository.findUser.mockResolvedValue(null)
-
-            await expect(service.resetPassword(reqDto)).rejects.toThrow(BaseException)
-            await expect(service.resetPassword(reqDto)).rejects.toThrow(USER_ERROR.VERIFICATION_FAILED.message)
+            await expect(service.resetPassword(reqDto)).rejects.toThrow(USER_ERROR.NOT_FOUND.message)
         })
     })
 })

@@ -1,5 +1,5 @@
 import { CurrentUser } from '@libs/common/decorator/jwt-payload.decorator'
-import { type JwtPayload } from '@libs/common/utils/jwt.util'
+import { type JwtPayload } from '@libs/common/util/jwt.util'
 import { Body, Controller, Get, Post, Query } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { CreateNotificationRequestDto } from './dto/notification-create-request.dto'

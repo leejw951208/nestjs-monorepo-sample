@@ -58,6 +58,41 @@ export const AUTH_ERROR: {
         status: 403,
         errorCode: 'AUTH_ERROR_008',
         message: '리소스 접근 권한이 없습니다.'
+    },
+    OTP_INVALID: {
+        status: 400,
+        errorCode: 'AUTH_ERROR_009',
+        message: 'OTP가 일치하지 않습니다.'
+    },
+    OTP_EXPIRED: {
+        status: 400,
+        errorCode: 'AUTH_ERROR_010',
+        message: 'OTP가 만료되었습니다.'
+    },
+    RESET_TOKEN_INVALID: {
+        status: 400,
+        errorCode: 'AUTH_ERROR_011',
+        message: '비밀번호 재설정 토큰이 유효하지 않습니다.'
+    },
+    RESET_TOKEN_EXPIRED: {
+        status: 400,
+        errorCode: 'AUTH_ERROR_012',
+        message: '비밀번호 재설정 토큰이 만료되었습니다.'
+    },
+    INVALID_RESET_TOKEN: {
+        status: 400,
+        errorCode: 'AUTH_ERROR_013',
+        message: '유효하지 않은 비밀번호 재설정 토큰입니다.'
+    },
+    OTP_MAX_ATTEMPTS_REACHED: {
+        status: 429,
+        errorCode: 'AUTH_ERROR_014',
+        message: 'OTP 입력 횟수를 초과했습니다. 새로운 OTP를 요청해주세요.'
+    },
+    RATE_LIMIT_EXCEEDED: {
+        status: 429,
+        errorCode: 'AUTH_ERROR_015',
+        message: '요청 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.'
     }
 }
 

@@ -4,7 +4,7 @@ import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.fa
 import { NotificationRepository } from './notification.repository'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { NotificationPaginationRequestDto } from './dto/notification-pagination-request.dto'
-import { type JwtPayload } from '@libs/common/utils/jwt.util'
+import { type JwtPayload } from '@libs/common/util/jwt.util'
 
 describe('NotificationService', () => {
     let service: NotificationService

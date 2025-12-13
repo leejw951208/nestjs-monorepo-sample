@@ -13,6 +13,13 @@ export type AuthErrorType =
     | 'EXPIRED_REFRESH_TOKEN'
     | 'PASSWORD_NOT_MATCHED'
     | 'RESOURCE_ACCESS_DENIED'
+    | 'OTP_INVALID'
+    | 'OTP_EXPIRED'
+    | 'OTP_MAX_ATTEMPTS_REACHED'
+    | 'RESET_TOKEN_INVALID'
+    | 'RESET_TOKEN_EXPIRED'
+    | 'INVALID_RESET_TOKEN'
+    | 'RATE_LIMIT_EXCEEDED'
 export type UserErrorType =
     | typeof NotFoundType
     | 'ALREADY_EXISTS_EMAIL'

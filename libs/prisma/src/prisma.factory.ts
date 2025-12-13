@@ -1,4 +1,4 @@
-import { ClsUtil } from '@libs/common/utils/cls.util'
+import { ClsUtil } from '@libs/common/util/cls.util'
 import { createExtension, softDeleteExtension, updateExtension } from '@libs/prisma/prisma-extension'
 import { ConfigService } from '@nestjs/config'
 import { Prisma, PrismaClient } from '@prisma/client'

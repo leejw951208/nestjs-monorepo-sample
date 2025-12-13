@@ -7,7 +7,7 @@ import { Request } from 'express'
 import { ExtractJwt, Strategy } from 'passport-jwt'
 import { BaseException } from '../exception/base.exception'
 import { AUTH_ERROR } from '../exception/error.code'
-import { BcryptUtil } from '../utils/bcrypt.util'
+import { BcryptUtil } from '../util/bcrypt.util'
 import { JwtPayload } from '../type/jwt-payload.type'
 
 /**

@@ -1,6 +1,6 @@
 import { BaseException } from '@libs/common/exception/base.exception'
 import { AUTH_ERROR } from '@libs/common/exception/error.code'
-import { ExtendedPrismaClient } from '@libs/prisma/prisma.factory'
+import type { ExtendedPrismaClient } from '@libs/prisma/prisma.factory'
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { ClsService } from 'nestjs-cls'

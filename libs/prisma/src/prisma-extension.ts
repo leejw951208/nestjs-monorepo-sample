@@ -1,4 +1,4 @@
-import { ClsUtil } from '@libs/common/utils/cls.util'
+import { ClsUtil } from '@libs/common/util/cls.util'
 import { Prisma } from '@prisma/client'
 
 export const createExtension = (clsUtil: ClsUtil) =>

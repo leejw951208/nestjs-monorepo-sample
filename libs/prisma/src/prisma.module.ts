@@ -1,4 +1,4 @@
-import { ClsUtil } from '@libs/common/utils/cls.util'
+import { ClsUtil } from '@libs/common/util/cls.util'
 import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston'

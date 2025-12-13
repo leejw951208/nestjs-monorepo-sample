@@ -7,11 +7,14 @@ import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@n
 import { ApiOkBaseResponse } from '@libs/common/decorator/api-base-ok-response.decorator'
 import type { Request, Response } from 'express'
 import { AuthService } from './auth.service'
+import { PasswordResetInitRequestDto } from './dto/password-reset-init.request.dto'
 import { RefreshTokenResponseDto } from './dto/refresh-token-response.dto'
-import { ResetPasswordRequestDto } from './dto/reset-password-request.dto'
+import { PasswordResetConfirmRequestDto } from './dto/password-reset-confirm.request.dto'
 import { SigninRequestDto } from './dto/signin-request.dto'
 import { SigninResponseDto } from './dto/signin-response.dto'
 import { SignupRequestDto } from './dto/signup-request.dto'
+import { PasswordResetVerifyRequestDto } from './dto/password-reset-verify.request.dto'
+import { PasswordResetVerifyResponseDto } from './dto/password-reset-verify.response.dto'
 import { ResponseDto } from '@libs/common/dto/response.dto'
 
 @ApiTags('auth')
@@ -73,14 +76,39 @@ export class AuthController {
     }
 
     @ApiOperation({
-        summary: '비밀번호 재설정',
-        description: '이름과 아이디로 회원을 확인한 후 비밀번호를 재설정합니다.'
+        summary: 'OTP 발급 요청',
+        description: '비밀번호 재설정을 위한 OTP를 이메일로 발급합니다. OTP는 5분간 유효합니다.'
     })
-    @ApiBody({ type: ResetPasswordRequestDto })
-    @ApiOkBaseResponse({ description: 'access token 재발급 성공' })
+    @ApiBody({ type: PasswordResetInitRequestDto })
+    @ApiOkResponse()
     @Public()
-    @Post('reset-password')
-    async resetPassword(@Body() reqDto: ResetPasswordRequestDto): Promise<void> {
+    @Post('password-reset/request')
+    async issueOtp(@Body() reqDto: PasswordResetInitRequestDto): Promise<void> {
+        await this.service.issueOtp(reqDto)
+    }
+
+    @ApiOperation({
+        summary: 'OTP 검증 및 재설정 토큰 발급',
+        description: 'OTP를 검증하고 비밀번호 재설정 토큰을 발급합니다. 재설정 토큰은 15분간 유효합니다.'
+    })
+    @ApiBody({ type: PasswordResetVerifyRequestDto })
+    @ApiOkBaseResponse({ type: PasswordResetVerifyResponseDto })
+    @Public()
+    @Post('password-reset/verify-otp')
+    async verifyOtp(@Body() reqDto: PasswordResetVerifyRequestDto): Promise<ResponseDto<PasswordResetVerifyResponseDto>> {
+        const result = await this.service.verifyOtp(reqDto)
+        return new ResponseDto(result)
+    }
+
+    @ApiOperation({
+        summary: '비밀번호 재설정',
+        description: '재설정 토큰을 사용하여 새 비밀번호로 변경합니다.'
+    })
+    @ApiBody({ type: PasswordResetConfirmRequestDto })
+    @ApiOkResponse()
+    @Public()
+    @Post('password-reset/confirm')
+    async resetPassword(@Body() reqDto: PasswordResetConfirmRequestDto): Promise<void> {
         await this.service.resetPassword(reqDto)
     }
 
