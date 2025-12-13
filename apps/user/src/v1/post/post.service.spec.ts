@@ -4,7 +4,7 @@ import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.fa
 import { PostStatus } from '@prisma/client'
 import { type JwtPayload } from '@libs/common/utils/jwt.util'
 import { PostCreateDto } from './dto/post-create.dto'
-import { PostResponseDto } from './dto/post-response.dto'
+import { PostResponseDto as PostResDto } from './dto/post-response.dto'
 import { CursorPaginationResDto, OffsetPaginationResDto } from '@libs/common/dto/pagination-response.dto'
 import { PostUpdateDto } from './dto/post-update.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
@@ -73,18 +73,18 @@ describe('PostService', () => {
 
             mockPrisma.post.create.mockResolvedValue(createdPost)
 
-            const result = await service.savePost(payload, reqDto)
+            const result = await service.savePost(payload.id, reqDto)
 
             expect(prisma.post.create).toHaveBeenCalledWith({
                 data: {
                     title: reqDto.title,
                     content: reqDto.content,
                     userId: payload.id,
-                    status: reqDto.status,
+                    status: reqDto.status || PostStatus.PUBLISHED,
                     createdBy: payload.id
                 }
             })
-            expect(result).toBeInstanceOf(PostResponseDto)
+            expect(result).toBeInstanceOf(PostResDto)
             expect(result.id).toBe(createdPost.id)
         })
     })
@@ -119,13 +119,12 @@ describe('PostService', () => {
             expect(postQuery.getPostsOffset).toHaveBeenCalledWith(query)
             expect(result).toBeInstanceOf(OffsetPaginationResDto)
             expect(result.data[0]).toBeInstanceOf(PostResDto)
-            expect(result.totalCount).toBe(totalCount)
+            expect(result.meta.totalCount).toBe(totalCount)
         })
     })
 
     describe('getPostById', () => {
         it('should return a post and increment view count', async () => {
-            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
             const postId = 1
             const post = {
                 id: postId,
@@ -142,7 +141,7 @@ describe('PostService', () => {
             mockPrisma.post.findFirst.mockResolvedValue(post)
             mockPrisma.post.update.mockResolvedValue({ viewCount: 1 })
 
-            const result = await service.getPost(payload, postId)
+            const result = await service.getPost(postId)
 
             expect(prisma.post.findFirst).toHaveBeenCalledWith({
                 where: { id: postId, isDeleted: false }
@@ -152,18 +151,17 @@ describe('PostService', () => {
                 data: { viewCount: { increment: 1 } },
                 select: { viewCount: true }
             })
-            expect(result).toBeInstanceOf(PostResponseDto)
+            expect(result).toBeInstanceOf(PostResDto)
             expect(result.viewCount).toBe(1)
         })
 
         it('should throw exception if post not found', async () => {
-            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
             const postId = 1
 
             mockPrisma.post.findFirst.mockResolvedValue(null)
 
-            await expect(service.getPost(payload, postId)).rejects.toThrow(BaseException)
-            await expect(service.getPost(payload, postId)).rejects.toThrow(POST_ERROR.NOT_FOUND.message)
+            await expect(service.getPost(postId)).rejects.toThrow(BaseException)
+            await expect(service.getPost(postId)).rejects.toThrow(POST_ERROR.NOT_FOUND.message)
         })
     })
 
@@ -193,12 +191,12 @@ describe('PostService', () => {
 
             mockPostQuery.getPostsOffset.mockResolvedValue({ items: posts, totalCount })
 
-            const result = await service.getMyPostsOffset(payload, query)
+            const result = await service.getMyPostsOffset(payload.id, query)
 
             expect(postQuery.getPostsOffset).toHaveBeenCalledWith(query, payload.id)
             expect(result).toBeInstanceOf(OffsetPaginationResDto)
             expect(result.data[0]).toBeInstanceOf(PostResDto)
-            expect(result.totalCount).toBe(totalCount)
+            expect(result.meta.totalCount).toBe(totalCount)
         })
     })
 
@@ -262,7 +260,7 @@ describe('PostService', () => {
 
             mockPostQuery.getPostsCursor.mockResolvedValue({ items: posts, nextCursor })
 
-            const result = await service.getMyPostsCursor(payload, query)
+            const result = await service.getMyPostsCursor(payload.id, query)
 
             expect(postQuery.getPostsCursor).toHaveBeenCalledWith(query, payload.id)
             expect(result).toBeInstanceOf(CursorPaginationResDto)
@@ -285,11 +283,11 @@ describe('PostService', () => {
 
             mockPrisma.post.findFirst.mockResolvedValue(post)
 
-            await service.updateMyPost(payload, postId, reqDto)
+            await service.updateMyPost(payload.id, postId, reqDto)
 
-            expect(prisma.post.findFirst).toHaveBeenCalledWith({ where: { id: postId } })
+            expect(prisma.post.findFirst).toHaveBeenCalledWith({ where: { id: postId, userId: payload.id, isDeleted: false } })
             expect(prisma.post.update).toHaveBeenCalledWith({
-                where: { id: postId },
+                where: { id: postId, userId: payload.id, isDeleted: false },
                 data: { ...reqDto, updatedBy: payload.id }
             })
         })
@@ -332,10 +330,10 @@ describe('PostService', () => {
 
             mockPrisma.post.findFirst.mockResolvedValue(post)
 
-            await service.deleteMyPost(payload, postId)
+            await service.deleteMyPost(payload.id, postId)
 
-            expect(prisma.post.findFirst).toHaveBeenCalledWith({ where: { id: postId } })
-            expect(prisma.post.softDelete).toHaveBeenCalledWith({ where: { id: postId } })
+            expect(prisma.post.findFirst).toHaveBeenCalledWith({ where: { id: postId, userId: payload.id, isDeleted: false } })
+            expect(prisma.post.softDelete).toHaveBeenCalledWith({ where: { id: postId, userId: payload.id, isDeleted: false } })
         })
 
         it('should throw exception if post not found', async () => {

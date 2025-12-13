@@ -82,7 +82,7 @@ describe('NotificationService', () => {
             const result = await service.getNotifications(dto)
 
             expect(result.data).toHaveLength(1)
-            expect(result.totalCount).toBe(1)
+            expect(result.meta.totalCount).toBe(1)
             expect(mockNotificationQuery.getNotifications).toHaveBeenCalledWith({
                 pagination: { page: dto.page, size: dto.size, order: dto.order },
                 searchCondition: { userId: dto.userId, type: dto.type, keyword: dto.keyword }
