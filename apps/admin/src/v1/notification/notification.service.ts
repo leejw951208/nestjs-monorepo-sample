@@ -4,11 +4,11 @@ import { plainToInstance } from 'class-transformer'
 import { CreateNotificationRequestDto } from './dto/notification-create-request.dto'
 import { NotificationPaginationRequestDto } from './dto/notification-pagination-request.dto'
 import { NotificationResponseDto } from './dto/notification-response.dto'
-import { NotificationQuery } from './notification.query'
+import { NotificationRepository } from './notification.repository'
 
 @Injectable()
 export class NotificationService {
-    constructor(private readonly notificationQuery: NotificationQuery) {}
+    constructor(private readonly notificationQuery: NotificationRepository) {}
 
     async createNotification(adminId: number, dto: CreateNotificationRequestDto): Promise<void> {
         await this.notificationQuery.createNotification({

@@ -16,7 +16,7 @@ interface NotificationsOffsetParams {
 }
 
 @Injectable()
-export class NotificationQuery {
+export class NotificationRepository {
     constructor(@Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient) {}
 
     async createNotification(data: Prisma.NotificationCreateInput): Promise<void> {

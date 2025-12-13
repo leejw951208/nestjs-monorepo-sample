@@ -17,6 +17,7 @@ import { ResetPasswordRequestDto } from './dto/reset-password-request.dto'
 import { SigninRequestDto } from './dto/signin-request.dto'
 import { SigninResponseDto } from './dto/signin-response.dto'
 import { SignupRequestDto } from './dto/signup-request.dto'
+import { UserRepository } from '../user/user.repository'
 
 @Injectable()
 export class AuthService {
@@ -26,12 +27,13 @@ export class AuthService {
         @Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient,
         private readonly bcryptUtil: BcryptUtil,
         private readonly jwtUtil: JwtUtil,
-        private readonly cls: ClsService
+        private readonly cls: ClsService,
+        private readonly userRepository: UserRepository
     ) {}
 
     async signup(reqDto: SignupRequestDto): Promise<void> {
         // 이메일 중복 검사
-        const foundUser = await this.prisma.user.findUnique({
+        const foundUser = await this.userRepository.findUser({
             where: { email: reqDto.email }
         })
         if (foundUser) throw new BaseException(USER_ERROR.ALREADY_EXISTS_EMAIL, this.constructor.name)
@@ -47,7 +49,7 @@ export class AuthService {
 
     async signin(reqDto: SigninRequestDto): Promise<{ resDto: SigninResponseDto; refreshToken: string }> {
         // 회원 조회
-        const foundUser = await this.prisma.user.findUnique({ where: { email: reqDto.email } })
+        const foundUser = await this.userRepository.findUser({ where: { email: reqDto.email } })
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
         // 비밀번호 비교
@@ -82,7 +84,7 @@ export class AuthService {
         const payload = await this.jwtUtil.verify(refreshToken, 're')
 
         // 회원 정보 조회
-        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id } })
+        const foundUser = await this.userRepository.findUser({ where: { id: payload.id } })
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
         // Redis에 저장된 리프레시 토큰 삭제
@@ -94,7 +96,7 @@ export class AuthService {
         const payload = await this.jwtUtil.verify(refreshToken, 're')
 
         // 회원 정보 조회
-        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id } })
+        const foundUser = await this.userRepository.findUser({ where: { id: payload.id } })
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
         // Redis에 저장된 리프레시 토큰 조회
@@ -127,11 +129,10 @@ export class AuthService {
 
     async resetPassword(reqDto: ResetPasswordRequestDto): Promise<void> {
         // 이름과 이메일로 회원 조회
-        const foundUser = await this.prisma.user.findFirst({
+        const foundUser = await this.userRepository.findUser({
             where: {
                 email: reqDto.email,
-                name: reqDto.name,
-                isDeleted: false
+                name: reqDto.name
             }
         })
 

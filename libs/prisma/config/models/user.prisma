@@ -1,7 +1,7 @@
 model User {
     id       Int        @id @default(autoincrement())
-    password String     @map("password")
     email    String     @unique @map("email")
+    password String     @map("password")
     name     String     @map("name")
     phone    String     @map("phone")
     status   UserStatus @default(ACTIVE) @map("status")

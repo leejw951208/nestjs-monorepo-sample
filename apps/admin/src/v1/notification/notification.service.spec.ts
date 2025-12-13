@@ -2,12 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { NotificationType } from '@prisma/client'
 import { CreateNotificationRequestDto } from './dto/notification-create-request.dto'
 import { NotificationPaginationRequestDto } from './dto/notification-pagination-request.dto'
-import { NotificationQuery } from './notification.query'
+import { NotificationRepository } from './notification.repository'
 import { NotificationService } from './notification.service'
 
 describe('NotificationService', () => {
     let service: NotificationService
-    let notificationQuery: NotificationQuery
+    let notificationQuery: NotificationRepository
 
     const mockNotificationQuery = {
         createNotification: jest.fn(),
@@ -16,11 +16,11 @@ describe('NotificationService', () => {
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [NotificationService, { provide: NotificationQuery, useValue: mockNotificationQuery }]
+            providers: [NotificationService, { provide: NotificationRepository, useValue: mockNotificationQuery }]
         }).compile()
 
         service = module.get<NotificationService>(NotificationService)
-        notificationQuery = module.get<NotificationQuery>(NotificationQuery)
+        notificationQuery = module.get<NotificationRepository>(NotificationRepository)
     })
 
     afterEach(() => {

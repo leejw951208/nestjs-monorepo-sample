@@ -9,6 +9,7 @@ import { BaseException } from '@libs/common/exception/base.exception'
 import { USER_ERROR } from '@libs/common/exception/error.code'
 import { ResetPasswordRequestDto } from './dto/reset-password-request.dto'
 import { UserStatus } from '@prisma/client'
+import { UserRepository } from '../user/user.repository'
 
 describe('AuthService', () => {
     let service: AuthService
@@ -43,6 +44,10 @@ describe('AuthService', () => {
 
     const mockClsService = {}
 
+    const mockUserRepository = {
+        findUser: jest.fn()
+    }
+
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -51,7 +56,8 @@ describe('AuthService', () => {
                 { provide: CACHE_MANAGER, useValue: mockCacheManager },
                 { provide: BcryptUtil, useValue: mockBcryptUtil },
                 { provide: JwtUtil, useValue: mockJwtUtil },
-                { provide: ClsService, useValue: mockClsService }
+                { provide: ClsService, useValue: mockClsService },
+                { provide: UserRepository, useValue: mockUserRepository }
             ]
         }).compile()
 
@@ -78,7 +84,7 @@ describe('AuthService', () => {
             }
             const hashedPassword = 'hashedpassword123'
 
-            mockPrisma.user.findUnique.mockResolvedValue(null)
+            mockUserRepository.findUser.mockResolvedValue(null)
             mockBcryptUtil.hash.mockResolvedValue(hashedPassword)
             mockPrisma.user.create.mockResolvedValue({
                 id: 1,
@@ -89,7 +95,7 @@ describe('AuthService', () => {
 
             await service.signup(reqDto)
 
-            expect(prisma.user.findUnique).toHaveBeenCalledWith({
+            expect(mockUserRepository.findUser).toHaveBeenCalledWith({
                 where: { email: reqDto.email }
             })
             expect(bcryptUtil.hash).toHaveBeenCalledWith(reqDto.password)
@@ -104,7 +110,7 @@ describe('AuthService', () => {
                 phone: '01012345678'
             }
 
-            mockPrisma.user.findUnique.mockResolvedValue({ id: 1, email: 'existing@example.com' })
+            mockUserRepository.findUser.mockResolvedValue({ id: 1, email: 'existing@example.com' })
 
             await expect(service.signup(reqDto)).rejects.toThrow(BaseException)
             await expect(service.signup(reqDto)).rejects.toThrow(USER_ERROR.ALREADY_EXISTS_EMAIL.message)
@@ -126,7 +132,7 @@ describe('AuthService', () => {
             const refreshToken = 'refresh-token'
             const hashedRefreshToken = 'hashed-refresh-token'
 
-            mockPrisma.user.findUnique.mockResolvedValue(user)
+            mockUserRepository.findUser.mockResolvedValue(user)
             mockBcryptUtil.compare.mockResolvedValue(true)
             mockJwtUtil.createAccessToken.mockResolvedValue(accessToken)
             mockJwtUtil.createRefreshToken.mockResolvedValue(refreshToken)
@@ -137,7 +143,7 @@ describe('AuthService', () => {
 
             expect(result.resDto.accessToken).toBe(accessToken)
             expect(result.refreshToken).toBe(refreshToken)
-            expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email: reqDto.email } })
+            expect(mockUserRepository.findUser).toHaveBeenCalledWith({ where: { email: reqDto.email } })
             expect(bcryptUtil.compare).toHaveBeenCalledWith(reqDto.password, user.password)
             expect(mockCacheManager.set).toHaveBeenCalled()
         })
@@ -145,7 +151,7 @@ describe('AuthService', () => {
         it('should throw exception if user not found', async () => {
             const reqDto = { email: 'nonexistent@example.com', password: 'password123' }
 
-            mockPrisma.user.findUnique.mockResolvedValue(null)
+            mockUserRepository.findUser.mockResolvedValue(null)
 
             await expect(service.signin(reqDto)).rejects.toThrow(BaseException)
             await expect(service.signin(reqDto)).rejects.toThrow(USER_ERROR.NOT_FOUND.message)
@@ -159,7 +165,7 @@ describe('AuthService', () => {
                 email: 'test@example.com'
             }
 
-            mockPrisma.user.findUnique.mockResolvedValue(user)
+            mockUserRepository.findUser.mockResolvedValue(user)
             mockBcryptUtil.compare.mockResolvedValue(false)
 
             await expect(service.signin(reqDto)).rejects.toThrow(BaseException)
@@ -176,7 +182,7 @@ describe('AuthService', () => {
             }
 
             mockJwtUtil.verify.mockResolvedValue(payload)
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findUser.mockResolvedValue(user)
             mockCacheManager.del.mockResolvedValue(undefined)
 
             await service.signout(refreshToken)
@@ -200,7 +206,7 @@ describe('AuthService', () => {
             const hashedNewRefreshToken = 'hashed-new-refresh-token'
 
             mockJwtUtil.verify.mockResolvedValue(payload)
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findUser.mockResolvedValue(user)
             mockCacheManager.get.mockResolvedValue(cachedToken)
             mockBcryptUtil.compare.mockResolvedValue(true)
             mockCacheManager.del.mockResolvedValue(undefined)
@@ -223,7 +229,7 @@ describe('AuthService', () => {
             const user = { id: 1, email: 'test@example.com' }
 
             mockJwtUtil.verify.mockResolvedValue(payload)
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findUser.mockResolvedValue(user)
             mockCacheManager.get.mockResolvedValue(null)
 
             await expect(service.refreshToken(refreshToken)).rejects.toThrow(BaseException)
@@ -236,7 +242,7 @@ describe('AuthService', () => {
             const cachedToken = 'cached-hashed-token'
 
             mockJwtUtil.verify.mockResolvedValue(payload)
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findUser.mockResolvedValue(user)
             mockCacheManager.get.mockResolvedValue(cachedToken)
             mockBcryptUtil.compare.mockResolvedValue(false)
 
@@ -264,17 +270,16 @@ describe('AuthService', () => {
             }
             const hashedPassword = 'newhashedpassword'
 
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findUser.mockResolvedValue(user)
             mockBcryptUtil.hash.mockResolvedValue(hashedPassword)
             mockPrisma.user.update.mockResolvedValue({ ...user, password: hashedPassword })
 
             await service.resetPassword(reqDto)
 
-            expect(prisma.user.findFirst).toHaveBeenCalledWith({
+            expect(mockUserRepository.findUser).toHaveBeenCalledWith({
                 where: {
                     email: reqDto.email,
-                    name: reqDto.name,
-                    isDeleted: false
+                    name: reqDto.name
                 }
             })
             expect(bcryptUtil.hash).toHaveBeenCalledWith(reqDto.newPassword)
@@ -291,7 +296,7 @@ describe('AuthService', () => {
                 newPassword: 'newpass1234'
             }
 
-            mockPrisma.user.findFirst.mockResolvedValue(null)
+            mockUserRepository.findUser.mockResolvedValue(null)
 
             await expect(service.resetPassword(reqDto)).rejects.toThrow(BaseException)
             await expect(service.resetPassword(reqDto)).rejects.toThrow(USER_ERROR.VERIFICATION_FAILED.message)
@@ -304,7 +309,7 @@ describe('AuthService', () => {
                 newPassword: 'newpass1234'
             }
 
-            mockPrisma.user.findFirst.mockResolvedValue(null)
+            mockUserRepository.findUser.mockResolvedValue(null)
 
             await expect(service.resetPassword(reqDto)).rejects.toThrow(BaseException)
             await expect(service.resetPassword(reqDto)).rejects.toThrow(USER_ERROR.VERIFICATION_FAILED.message)
@@ -317,7 +322,7 @@ describe('AuthService', () => {
                 newPassword: 'newpass1234'
             }
 
-            mockPrisma.user.findFirst.mockResolvedValue(null)
+            mockUserRepository.findUser.mockResolvedValue(null)
 
             await expect(service.resetPassword(reqDto)).rejects.toThrow(BaseException)
             await expect(service.resetPassword(reqDto)).rejects.toThrow(USER_ERROR.VERIFICATION_FAILED.message)
