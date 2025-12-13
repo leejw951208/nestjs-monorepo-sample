@@ -53,7 +53,7 @@ export class AuthController {
     async signout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
         const refreshToken = this.extractRefreshToken(req)
         this.removeRefreshToken(res)
-        return await this.service.signout(refreshToken)
+        await this.service.signout(refreshToken)
     }
 
     @ApiOperation({
@@ -61,15 +61,15 @@ export class AuthController {
         description:
             '웹: 서버에서 쿠키에 저장된 리프레시 토큰 사용 / 앱: 헤더에 리프레시 토큰을 담아서 전달하고, 서버에서 헤더를 파싱하여 사용'
     })
-    @ApiOkResponse({ type: RefreshTokenResponseDto })
+    @ApiOkBaseResponse({ type: RefreshTokenResponseDto })
     @UseGuards(JwtRefreshGuard)
     @Public()
     @Post('token/refresh')
-    async refreshToken(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<RefreshTokenResponseDto> {
+    async refreshToken(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<ResponseDto<RefreshTokenResponseDto>> {
         const refreshToken = this.extractRefreshToken(req)
         const result = await this.service.refreshToken(refreshToken)
         this.setRefreshToken(res, result.refreshToken)
-        return result.resDto
+        return new ResponseDto(result.resDto)
     }
 
     @ApiOperation({
@@ -77,11 +77,11 @@ export class AuthController {
         description: '이름과 아이디로 회원을 확인한 후 비밀번호를 재설정합니다.'
     })
     @ApiBody({ type: ResetPasswordRequestDto })
-    @ApiOkResponse()
+    @ApiOkBaseResponse({ description: 'access token 재발급 성공' })
     @Public()
     @Post('reset-password')
     async resetPassword(@Body() reqDto: ResetPasswordRequestDto): Promise<void> {
-        return await this.service.resetPassword(reqDto)
+        await this.service.resetPassword(reqDto)
     }
 
     private setRefreshToken(res: Response, refreshToken: string) {

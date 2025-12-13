@@ -1,6 +1,5 @@
 model User {
     id       Int        @id @default(autoincrement())
-    loginId  String     @unique @map("login_id")
     password String     @map("password")
     email    String     @unique @map("email")
     name     String     @map("name")

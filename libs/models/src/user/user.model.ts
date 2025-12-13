@@ -2,7 +2,6 @@ import { BaseModel } from '@libs/models/base/base.model'
 import { User, UserStatus } from '@prisma/client'
 
 export class UserModel extends BaseModel implements User {
-    loginId: string
     password: string
     email: string
     name: string
@@ -14,7 +13,7 @@ export class UserModel extends BaseModel implements User {
         Object.assign(this, partial)
     }
 
-    static create(input: Pick<User, 'loginId' | 'password' | 'email' | 'name' | 'phone' | 'status'>): UserModel {
+    static create(input: Pick<User, 'password' | 'email' | 'name' | 'phone' | 'status'>): UserModel {
         return new UserModel(input)
     }
 }

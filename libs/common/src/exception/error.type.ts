@@ -15,7 +15,6 @@ export type AuthErrorType =
     | 'RESOURCE_ACCESS_DENIED'
 export type UserErrorType =
     | typeof NotFoundType
-    | 'ALREADY_EXISTS_LOGIN_ID'
     | 'ALREADY_EXISTS_EMAIL'
     | 'VERIFICATION_FAILED'
     | 'ALREADY_DELETED'

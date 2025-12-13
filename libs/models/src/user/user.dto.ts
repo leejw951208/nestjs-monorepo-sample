@@ -4,12 +4,6 @@ import { Expose } from 'class-transformer'
 import { IsEnum, IsNotEmpty, IsString } from 'class-validator'
 
 export class UserDto {
-    @ApiProperty({ required: true, description: '로그인 아이디', example: 'testuser' })
-    @IsNotEmpty()
-    @IsString()
-    @Expose()
-    loginId: string
-
     @ApiProperty({ required: true, description: '이메일', example: 'testuser@user.com' })
     @IsNotEmpty()
     @IsString()

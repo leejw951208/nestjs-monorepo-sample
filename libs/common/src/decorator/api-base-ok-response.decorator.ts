@@ -25,10 +25,36 @@ function ApiOkBase<TModel extends Type<unknown>>(model: TModel, options: Options
     )
 }
 
-export const ApiOkBaseResponse = <T extends Type<unknown>>(modelOrOptions: T | (Options & { type: T })) => {
+function ApiOkSimple(options: Options = {}) {
+    const dataKey = options.dataKey ?? 'data'
+    return applyDecorators(
+        ApiExtraModels(ResponseDto),
+        ApiOkResponse({
+            description: options.description,
+            schema: {
+                type: 'object',
+                properties: {
+                    [dataKey]: {
+                        type: 'object',
+                        description: 'Response data'
+                    }
+                },
+                required: [dataKey]
+            }
+        })
+    )
+}
+
+export const ApiOkBaseResponse = <T extends Type<unknown>>(modelOrOptions?: T | (Options & { type?: T })) => {
+    if (!modelOrOptions) {
+        return ApiOkSimple()
+    }
     if (typeof modelOrOptions === 'function') {
         return ApiOkBase(modelOrOptions)
     }
-    const { type, ...rest } = modelOrOptions
-    return ApiOkBase(type, rest)
+    if ('type' in modelOrOptions && modelOrOptions.type) {
+        const { type, ...rest } = modelOrOptions
+        return ApiOkBase(type, rest)
+    }
+    return ApiOkSimple(modelOrOptions)
 }

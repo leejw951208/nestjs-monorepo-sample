@@ -30,16 +30,11 @@ export class AuthService {
     ) {}
 
     async signup(reqDto: SignupRequestDto): Promise<void> {
-        // 로그인 아이디 중복 검사
-        const foundUsers = await this.prisma.user.findMany({
-            where: { OR: [{ loginId: reqDto.loginId }, { email: reqDto.email }] },
-            select: { loginId: true, email: true },
-            take: 2
+        // 이메일 중복 검사
+        const foundUser = await this.prisma.user.findUnique({
+            where: { email: reqDto.email }
         })
-        for (const user of foundUsers) {
-            if (user.loginId === reqDto.loginId) throw new BaseException(USER_ERROR.ALREADY_EXISTS_LOGIN_ID, this.constructor.name)
-            if (user.email === reqDto.email) throw new BaseException(USER_ERROR.ALREADY_EXISTS_EMAIL, this.constructor.name)
-        }
+        if (foundUser) throw new BaseException(USER_ERROR.ALREADY_EXISTS_EMAIL, this.constructor.name)
 
         const hashedPassword = await this.bcryptUtil.hash(reqDto.password)
         const createdUser = UserModel.create({
@@ -52,7 +47,7 @@ export class AuthService {
 
     async signin(reqDto: SigninRequestDto): Promise<{ resDto: SigninResponseDto; refreshToken: string }> {
         // 회원 조회
-        const foundUser = await this.prisma.user.findFirst({ where: { loginId: reqDto.loginId } })
+        const foundUser = await this.prisma.user.findUnique({ where: { email: reqDto.email } })
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
         // 비밀번호 비교
@@ -131,10 +126,10 @@ export class AuthService {
     }
 
     async resetPassword(reqDto: ResetPasswordRequestDto): Promise<void> {
-        // 이름과 아이디로 회원 조회
+        // 이름과 이메일로 회원 조회
         const foundUser = await this.prisma.user.findFirst({
             where: {
-                loginId: reqDto.loginId,
+                email: reqDto.email,
                 name: reqDto.name,
                 isDeleted: false
             }

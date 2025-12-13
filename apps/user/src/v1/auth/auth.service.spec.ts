@@ -18,7 +18,7 @@ describe('AuthService', () => {
     const mockPrisma = {
         user: {
             findFirst: jest.fn(),
-            findMany: jest.fn(),
+            findUnique: jest.fn(),
             create: jest.fn(),
             update: jest.fn()
         }
@@ -71,7 +71,6 @@ describe('AuthService', () => {
     describe('signup', () => {
         it('should successfully create a new user', async () => {
             const reqDto = {
-                loginId: 'newuser',
                 email: 'newuser@example.com',
                 password: 'password123',
                 name: 'New User',
@@ -79,7 +78,7 @@ describe('AuthService', () => {
             }
             const hashedPassword = 'hashedpassword123'
 
-            mockPrisma.user.findMany.mockResolvedValue([])
+            mockPrisma.user.findUnique.mockResolvedValue(null)
             mockBcryptUtil.hash.mockResolvedValue(hashedPassword)
             mockPrisma.user.create.mockResolvedValue({
                 id: 1,
@@ -90,40 +89,22 @@ describe('AuthService', () => {
 
             await service.signup(reqDto)
 
-            expect(prisma.user.findMany).toHaveBeenCalledWith({
-                where: { OR: [{ loginId: reqDto.loginId }, { email: reqDto.email }] },
-                select: { loginId: true, email: true },
-                take: 2
+            expect(prisma.user.findUnique).toHaveBeenCalledWith({
+                where: { email: reqDto.email }
             })
             expect(bcryptUtil.hash).toHaveBeenCalledWith(reqDto.password)
             expect(prisma.user.create).toHaveBeenCalled()
         })
 
-        it('should throw exception if loginId already exists', async () => {
-            const reqDto = {
-                loginId: 'existinguser',
-                email: 'newuser@example.com',
-                password: 'password123',
-                name: 'New User',
-                phone: '01012345678'
-            }
-
-            mockPrisma.user.findMany.mockResolvedValue([{ loginId: 'existinguser', email: 'other@example.com' }])
-
-            await expect(service.signup(reqDto)).rejects.toThrow(BaseException)
-            await expect(service.signup(reqDto)).rejects.toThrow(USER_ERROR.ALREADY_EXISTS_LOGIN_ID.message)
-        })
-
         it('should throw exception if email already exists', async () => {
             const reqDto = {
-                loginId: 'newuser',
                 email: 'existing@example.com',
                 password: 'password123',
                 name: 'New User',
                 phone: '01012345678'
             }
 
-            mockPrisma.user.findMany.mockResolvedValue([{ loginId: 'otheruser', email: 'existing@example.com' }])
+            mockPrisma.user.findUnique.mockResolvedValue({ id: 1, email: 'existing@example.com' })
 
             await expect(service.signup(reqDto)).rejects.toThrow(BaseException)
             await expect(service.signup(reqDto)).rejects.toThrow(USER_ERROR.ALREADY_EXISTS_EMAIL.message)
@@ -132,10 +113,9 @@ describe('AuthService', () => {
 
     describe('signin', () => {
         it('should successfully sign in and return tokens', async () => {
-            const reqDto = { loginId: 'testuser', password: 'password123' }
+            const reqDto = { email: 'test@example.com', password: 'password123' }
             const user = {
                 id: 1,
-                loginId: 'testuser',
                 password: 'hashedpassword',
                 email: 'test@example.com',
                 name: 'Test User',
@@ -146,7 +126,7 @@ describe('AuthService', () => {
             const refreshToken = 'refresh-token'
             const hashedRefreshToken = 'hashed-refresh-token'
 
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockPrisma.user.findUnique.mockResolvedValue(user)
             mockBcryptUtil.compare.mockResolvedValue(true)
             mockJwtUtil.createAccessToken.mockResolvedValue(accessToken)
             mockJwtUtil.createRefreshToken.mockResolvedValue(refreshToken)
@@ -157,30 +137,29 @@ describe('AuthService', () => {
 
             expect(result.resDto.accessToken).toBe(accessToken)
             expect(result.refreshToken).toBe(refreshToken)
-            expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { loginId: reqDto.loginId } })
+            expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email: reqDto.email } })
             expect(bcryptUtil.compare).toHaveBeenCalledWith(reqDto.password, user.password)
             expect(mockCacheManager.set).toHaveBeenCalled()
         })
 
         it('should throw exception if user not found', async () => {
-            const reqDto = { loginId: 'nonexistent', password: 'password123' }
+            const reqDto = { email: 'nonexistent@example.com', password: 'password123' }
 
-            mockPrisma.user.findFirst.mockResolvedValue(null)
+            mockPrisma.user.findUnique.mockResolvedValue(null)
 
             await expect(service.signin(reqDto)).rejects.toThrow(BaseException)
             await expect(service.signin(reqDto)).rejects.toThrow(USER_ERROR.NOT_FOUND.message)
         })
 
         it('should throw exception if password does not match', async () => {
-            const reqDto = { loginId: 'testuser', password: 'wrongpassword' }
+            const reqDto = { email: 'test@example.com', password: 'wrongpassword' }
             const user = {
                 id: 1,
-                loginId: 'testuser',
                 password: 'hashedpassword',
                 email: 'test@example.com'
             }
 
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockPrisma.user.findUnique.mockResolvedValue(user)
             mockBcryptUtil.compare.mockResolvedValue(false)
 
             await expect(service.signin(reqDto)).rejects.toThrow(BaseException)
@@ -193,7 +172,6 @@ describe('AuthService', () => {
             const payload = { id: 1, jti: 'test-jti', type: 'rf' }
             const user = {
                 id: 1,
-                loginId: 'testuser',
                 email: 'test@example.com'
             }
 
@@ -214,7 +192,6 @@ describe('AuthService', () => {
             const payload = { id: 1, jti: 'old-jti', type: 'rf' }
             const user = {
                 id: 1,
-                loginId: 'testuser',
                 email: 'test@example.com'
             }
             const cachedToken = 'cached-hashed-token'
@@ -243,7 +220,7 @@ describe('AuthService', () => {
         it('should throw exception if cached token not found', async () => {
             const refreshToken = 'refresh-token'
             const payload = { id: 1, jti: 'test-jti', type: 'rf' }
-            const user = { id: 1, loginId: 'testuser' }
+            const user = { id: 1, email: 'test@example.com' }
 
             mockJwtUtil.verify.mockResolvedValue(payload)
             mockPrisma.user.findFirst.mockResolvedValue(user)
@@ -255,7 +232,7 @@ describe('AuthService', () => {
         it('should throw exception if token does not match', async () => {
             const refreshToken = 'refresh-token'
             const payload = { id: 1, jti: 'test-jti', type: 'rf' }
-            const user = { id: 1, loginId: 'testuser' }
+            const user = { id: 1, email: 'test@example.com' }
             const cachedToken = 'cached-hashed-token'
 
             mockJwtUtil.verify.mockResolvedValue(payload)
@@ -270,14 +247,13 @@ describe('AuthService', () => {
     describe('resetPassword', () => {
         it('should successfully reset password', async () => {
             const reqDto: ResetPasswordRequestDto = {
-                loginId: 'testuser',
+                email: 'test@example.com',
                 name: 'Test User',
                 newPassword: 'newpass1234'
             }
             const user = {
                 id: 1,
                 email: 'test@example.com',
-                loginId: 'testuser',
                 name: 'Test User',
                 password: 'oldhashedpassword',
                 status: UserStatus.ACTIVE,
@@ -296,7 +272,7 @@ describe('AuthService', () => {
 
             expect(prisma.user.findFirst).toHaveBeenCalledWith({
                 where: {
-                    loginId: reqDto.loginId,
+                    email: reqDto.email,
                     name: reqDto.name,
                     isDeleted: false
                 }
@@ -310,7 +286,7 @@ describe('AuthService', () => {
 
         it('should throw exception if user not found', async () => {
             const reqDto: ResetPasswordRequestDto = {
-                loginId: 'testuser',
+                email: 'test@example.com',
                 name: 'Test User',
                 newPassword: 'newpass1234'
             }
@@ -323,7 +299,7 @@ describe('AuthService', () => {
 
         it('should throw exception if user verification fails (wrong name)', async () => {
             const reqDto: ResetPasswordRequestDto = {
-                loginId: 'testuser',
+                email: 'test@example.com',
                 name: 'Wrong Name',
                 newPassword: 'newpass1234'
             }
@@ -336,7 +312,7 @@ describe('AuthService', () => {
 
         it('should not reset password for deleted users', async () => {
             const reqDto: ResetPasswordRequestDto = {
-                loginId: 'testuser',
+                email: 'test@example.com',
                 name: 'Test User',
                 newPassword: 'newpass1234'
             }

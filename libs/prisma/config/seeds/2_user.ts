@@ -43,7 +43,6 @@ async function main() {
         // 2) User 생성
         await prisma.user.create({
             data: {
-                loginId: 'testuser',
                 password: await bcrypt.hash('user1234!@', saltRounds),
                 email: 'testuser@example.com',
                 name: '테스터',

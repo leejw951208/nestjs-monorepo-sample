@@ -57,7 +57,6 @@ describe('UserService', () => {
             const user = {
                 id: 1,
                 email: 'test@example.com',
-                loginId: 'testuser',
                 name: 'Test User',
                 status: UserStatus.ACTIVE,
                 createdAt: new Date(),
@@ -111,7 +110,6 @@ describe('UserService', () => {
             const user = {
                 id: 1,
                 email: 'test@example.com',
-                loginId: 'testuser',
                 name: 'Test User',
                 status: UserStatus.ACTIVE,
                 isDeleted: false,
@@ -143,7 +141,6 @@ describe('UserService', () => {
             const deletedUser = {
                 id: 1,
                 email: 'test@example.com',
-                loginId: 'testuser',
                 name: 'Test User',
                 status: UserStatus.ACTIVE,
                 isDeleted: true,

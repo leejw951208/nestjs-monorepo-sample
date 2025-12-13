@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsNotEmpty, IsString, Matches } from 'class-validator'
+import { IsEmail, IsNotEmpty, IsString, Matches } from 'class-validator'
 
 export class ResetPasswordRequestDto {
-    @ApiProperty({ type: String, required: true, description: '로그인 아이디', example: 'testuser' })
-    @IsNotEmpty({ message: '로그인 아이디는 필수입니다.' })
-    @IsString({ message: '로그인 아이디는 문자열입니다.' })
-    loginId: string
+    @ApiProperty({ type: String, required: true, description: '이메일', example: 'testuser@user.com' })
+    @IsNotEmpty({ message: '이메일은 필수입니다.' })
+    @IsEmail({}, { message: '유효한 이메일 주소를 입력해주세요.' })
+    email: string
 
     @ApiProperty({ type: String, required: true, description: '이름', example: '홍길동' })
     @IsNotEmpty({ message: '이름은 필수입니다.' })

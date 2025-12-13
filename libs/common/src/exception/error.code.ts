@@ -69,11 +69,6 @@ export const USER_ERROR: {
         errorCode: 'USER_ERROR_001',
         message: '회원 정보를 찾을 수 없습니다.'
     },
-    ALREADY_EXISTS_LOGIN_ID: {
-        status: 400,
-        errorCode: 'USER_ERROR_002',
-        message: '이미 존재하는 로그인 아이디입니다.'
-    },
     ALREADY_EXISTS_EMAIL: {
         status: 400,
         errorCode: 'USER_ERROR_003',
@@ -82,7 +77,7 @@ export const USER_ERROR: {
     VERIFICATION_FAILED: {
         status: 400,
         errorCode: 'USER_ERROR_004',
-        message: '회원 인증에 실패했습니다. 이름과 아이디를 확인해주세요.'
+        message: '회원 인증에 실패했습니다. 이름과 이메일을 확인해주세요.'
     },
     ALREADY_DELETED: {
         status: 400,
