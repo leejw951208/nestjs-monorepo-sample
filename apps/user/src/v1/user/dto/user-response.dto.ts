@@ -1,5 +1,5 @@
-import { UserDto } from '@libs/models/user/user.dto'
 import { ApiProperty } from '@nestjs/swagger'
+import { UserDto } from './user.dto'
 import { Expose } from 'class-transformer'
 
 export class UserResponseDto extends UserDto {

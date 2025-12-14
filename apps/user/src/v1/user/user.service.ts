@@ -1,42 +1,61 @@
 import { BaseException } from '@libs/common/exception/base.exception'
 import { USER_ERROR } from '@libs/common/exception/error.code'
-import { type JwtPayload } from '@libs/common/type/jwt-payload.type'
 import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
-import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager'
 import { Inject, Injectable } from '@nestjs/common'
-import { type ConfigType } from '@nestjs/config'
+import { UserStatus } from '@prisma/client'
 import { plainToInstance } from 'class-transformer'
-import userEnvConfig from '../../config/env/user-env.config'
 import { UserResponseDto } from './dto/user-response.dto'
 import { UserUpdateDto } from './dto/user-update.dto'
 
 @Injectable()
 export class UserService {
-    constructor(
-        @Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient,
-        @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-        @Inject(userEnvConfig.KEY) private readonly userEnv: ConfigType<typeof userEnvConfig>
-    ) {}
+    constructor(@Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient) {}
 
-    async getMe(payload: JwtPayload): Promise<UserResponseDto> {
-        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id } })
+    async getMe(userId: number): Promise<UserResponseDto> {
+        const foundUser = await this.prisma.user.findFirst({
+            where: { id: userId, isDeleted: false }
+        })
+
+        if (!foundUser) {
+            throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
+        }
+
         return plainToInstance(UserResponseDto, foundUser, { excludeExtraneousValues: true })
     }
 
-    async updateMe(payload: JwtPayload, reqDto: UserUpdateDto): Promise<void> {
-        const updatedUser = await this.prisma.user.update({ where: { id: payload.id }, data: reqDto })
-        if (!updatedUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
+    async updateMe(userId: number, reqDto: UserUpdateDto): Promise<void> {
+        const foundUser = await this.prisma.user.findFirst({
+            where: { id: userId, isDeleted: false }
+        })
+
+        if (!foundUser) {
+            throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
+        }
+
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: reqDto
+        })
     }
 
-    async deleteMe(payload: JwtPayload): Promise<void> {
-        // 회원 조회
-        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id } })
-        if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
+    async withdraw(userId: number): Promise<void> {
+        const foundUser = await this.prisma.user.findFirst({
+            where: { id: userId, isDeleted: false }
+        })
 
-        // 이미 탈퇴한 회원인지 확인
-        if (foundUser.isDeleted) throw new BaseException(USER_ERROR.ALREADY_DELETED, this.constructor.name)
+        if (!foundUser) {
+            throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
+        }
 
-        // Soft delete 처리
-        await this.prisma.user.softDelete({ where: { id: payload.id } })
+        if (foundUser.isDeleted) {
+            throw new BaseException(USER_ERROR.ALREADY_DELETED, this.constructor.name)
+        }
+
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { status: UserStatus.WITHDRAWN }
+        })
+
+        await this.prisma.user.softDelete({ where: { id: userId } })
     }
 }

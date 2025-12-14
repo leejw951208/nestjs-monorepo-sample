@@ -1,4 +1,4 @@
-import { UserDto } from '@libs/models/user/user.dto'
+import { UserDto } from 'apps/user/src/v1/user/dto/user.dto'
 import { ApiProperty } from '@nestjs/swagger'
 import { Expose } from 'class-transformer'
 import { IsNotEmpty, IsString } from 'class-validator'

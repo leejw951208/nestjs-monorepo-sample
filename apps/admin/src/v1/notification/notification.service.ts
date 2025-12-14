@@ -1,4 +1,4 @@
-import { OffsetPaginationResDto } from '@libs/common/dto/pagination-response.dto'
+import { OffsetResponseDto } from '@libs/common/dto/pagination-response.dto'
 import { Inject, Injectable } from '@nestjs/common'
 import { plainToInstance } from 'class-transformer'
 import { CreateNotificationRequestDto } from './dto/notification-create-request.dto'
@@ -20,7 +20,7 @@ export class NotificationService {
         })
     }
 
-    async getNotifications(dto: NotificationPaginationRequestDto): Promise<OffsetPaginationResDto<NotificationResponseDto>> {
+    async getNotifications(dto: NotificationPaginationRequestDto): Promise<OffsetResponseDto<NotificationResponseDto>> {
         const { totalCount, items } = await this.notificationQuery.getNotifications({
             pagination: { page: dto.page, size: dto.size, order: dto.order },
             searchCondition: {
@@ -31,6 +31,6 @@ export class NotificationService {
         })
         const data = plainToInstance(NotificationResponseDto, items, { excludeExtraneousValues: true })
 
-        return new OffsetPaginationResDto(data, { page: dto.page, totalCount })
+        return new OffsetResponseDto(data, { page: dto.page, totalCount })
     }
 }

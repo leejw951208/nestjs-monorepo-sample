@@ -1,15 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { UserService } from './user.service'
 import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
-import { CACHE_MANAGER } from '@nestjs/cache-manager'
 import { UserStatus } from '@prisma/client'
-import userEnvConfig from '../../config/env/user-env.config'
-import { type ConfigType } from '@nestjs/config'
-import { type JwtPayload } from '@libs/common/util/jwt.util'
 import { UserResponseDto } from './dto/user-response.dto'
 import { UserUpdateDto } from './dto/user-update.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { USER_ERROR } from '@libs/common/exception/error.code'
+import { ClsService } from 'nestjs-cls'
 
 describe('UserService', () => {
     let service: UserService
@@ -23,20 +20,13 @@ describe('UserService', () => {
         }
     }
 
-    const mockCacheManager = {}
-
-    const mockUserEnvConfig: ConfigType<typeof userEnvConfig> = {
-        // Add mock config properties if needed, currently empty as per usage in service
-    } as any
+    const mockClsService = {
+        get: jest.fn()
+    }
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [
-                UserService,
-                { provide: PRISMA_CLIENT, useValue: mockPrisma },
-                { provide: CACHE_MANAGER, useValue: mockCacheManager },
-                { provide: userEnvConfig.KEY, useValue: mockUserEnvConfig }
-            ]
+            providers: [UserService, { provide: PRISMA_CLIENT, useValue: mockPrisma }, { provide: ClsService, useValue: mockClsService }]
         }).compile()
 
         service = module.get<UserService>(UserService)
@@ -53,9 +43,9 @@ describe('UserService', () => {
 
     describe('getMe', () => {
         it('should return user info', async () => {
-            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
+            const userId = 1
             const user = {
-                id: 1,
+                id: userId,
                 email: 'test@example.com',
                 name: 'Test User',
                 status: UserStatus.ACTIVE,
@@ -65,50 +55,66 @@ describe('UserService', () => {
 
             mockPrisma.user.findFirst.mockResolvedValue(user)
 
-            const result = await service.getMe(payload)
+            const result = await service.getMe(userId)
 
-            expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { id: payload.id } })
+            expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { id: userId, isDeleted: false } })
             expect(result).toBeInstanceOf(UserResponseDto)
             expect(result.id).toBe(user.id)
+        })
+
+        it('should throw exception if user not found', async () => {
+            const userId = 1
+
+            mockPrisma.user.findFirst.mockResolvedValue(null)
+
+            await expect(service.getMe(userId)).rejects.toThrow(BaseException)
+            await expect(service.getMe(userId)).rejects.toThrow(USER_ERROR.NOT_FOUND.message)
         })
     })
 
     describe('updateMe', () => {
         it('should update user info', async () => {
-            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
+            const userId = 1
             const updateDto: UserUpdateDto = {
                 email: 'updated@example.com'
             }
+            const user = {
+                id: userId,
+                email: 'test@example.com',
+                name: 'Test User'
+            }
             const updatedUser = {
-                id: 1,
+                ...user,
                 ...updateDto
             }
 
+            mockPrisma.user.findFirst.mockResolvedValue(user)
             mockPrisma.user.update.mockResolvedValue(updatedUser)
 
-            await service.updateMe(payload, updateDto)
+            await service.updateMe(userId, updateDto)
 
-            expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: payload.id }, data: updateDto })
+            expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { id: userId, isDeleted: false } })
+            expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: userId }, data: updateDto })
         })
 
-        it('should throw exception if user not found (update failed)', async () => {
-            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
+        it('should throw exception if user not found', async () => {
+            const userId = 1
             const updateDto: UserUpdateDto = {
                 email: 'updated@example.com'
             }
 
-            mockPrisma.user.update.mockResolvedValue(null)
+            mockPrisma.user.findFirst.mockResolvedValue(null)
 
-            await expect(service.updateMe(payload, updateDto)).rejects.toThrow(BaseException)
-            await expect(service.updateMe(payload, updateDto)).rejects.toThrow(USER_ERROR.NOT_FOUND.message)
+            await expect(service.updateMe(userId, updateDto)).rejects.toThrow(BaseException)
+            await expect(service.updateMe(userId, updateDto)).rejects.toThrow(USER_ERROR.NOT_FOUND.message)
         })
     })
 
-    describe('deleteMe', () => {
-        it('should successfully soft delete user', async () => {
-            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
+    describe('withdraw', () => {
+        it('should successfully withdraw user', async () => {
+            const userId = 1
             const user = {
-                id: 1,
+                id: userId,
                 email: 'test@example.com',
                 name: 'Test User',
                 status: UserStatus.ACTIVE,
@@ -119,27 +125,32 @@ describe('UserService', () => {
             }
 
             mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockPrisma.user.update.mockResolvedValue({ ...user, status: UserStatus.WITHDRAWN })
             mockPrisma.user.softDelete.mockResolvedValue(undefined)
 
-            await service.deleteMe(payload)
+            await service.withdraw(userId)
 
-            expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { id: payload.id } })
-            expect(prisma.user.softDelete).toHaveBeenCalledWith({ where: { id: payload.id } })
+            expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { id: userId, isDeleted: false } })
+            expect(prisma.user.update).toHaveBeenCalledWith({
+                where: { id: userId },
+                data: { status: UserStatus.WITHDRAWN }
+            })
+            expect(prisma.user.softDelete).toHaveBeenCalledWith({ where: { id: userId } })
         })
 
         it('should throw exception if user not found', async () => {
-            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
+            const userId = 1
 
             mockPrisma.user.findFirst.mockResolvedValue(null)
 
-            await expect(service.deleteMe(payload)).rejects.toThrow(BaseException)
-            await expect(service.deleteMe(payload)).rejects.toThrow(USER_ERROR.NOT_FOUND.message)
+            await expect(service.withdraw(userId)).rejects.toThrow(BaseException)
+            await expect(service.withdraw(userId)).rejects.toThrow(USER_ERROR.NOT_FOUND.message)
         })
 
         it('should throw exception if user is already deleted', async () => {
-            const payload: JwtPayload = { id: 1, type: 'ac', aud: 'api', jti: 'jti', issuer: 'monorepo' }
+            const userId = 1
             const deletedUser = {
-                id: 1,
+                id: userId,
                 email: 'test@example.com',
                 name: 'Test User',
                 status: UserStatus.ACTIVE,
@@ -151,8 +162,8 @@ describe('UserService', () => {
 
             mockPrisma.user.findFirst.mockResolvedValue(deletedUser)
 
-            await expect(service.deleteMe(payload)).rejects.toThrow(BaseException)
-            await expect(service.deleteMe(payload)).rejects.toThrow(USER_ERROR.ALREADY_DELETED.message)
+            await expect(service.withdraw(userId)).rejects.toThrow(BaseException)
+            await expect(service.withdraw(userId)).rejects.toThrow(USER_ERROR.ALREADY_DELETED.message)
         })
     })
 })

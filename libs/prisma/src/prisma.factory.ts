@@ -1,4 +1,4 @@
-import { ClsUtil } from '@libs/common/util/cls.util'
+import { ClsService } from 'nestjs-cls'
 import { createExtension, softDeleteExtension, updateExtension } from '@libs/prisma/prisma-extension'
 import { ConfigService } from '@nestjs/config'
 import { Prisma, PrismaClient } from '@prisma/client'
@@ -6,7 +6,7 @@ import { Logger } from 'winston'
 
 export const PRISMA_CLIENT = Symbol('PRISMA_CLIENT')
 
-export const extendedPrismaClient = (config: ConfigService, cls: ClsUtil, logger: Logger) => {
+export const extendedPrismaClient = (config: ConfigService, cls: ClsService, logger: Logger) => {
     const client = new PrismaClient({
         datasources: { db: { url: config.get<string>('DATABASE_URL')! } },
         log: [{ emit: 'event', level: 'query' }]

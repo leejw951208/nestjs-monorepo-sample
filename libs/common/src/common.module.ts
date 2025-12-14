@@ -1,7 +1,5 @@
-import { BcryptUtil } from '@libs/common/util/bcrypt.util'
-import { JwtUtil } from '@libs/common/util/jwt.util'
-import { OtpUtil } from '@libs/common/util/otp.util'
-import { EmailUtil } from '@libs/common/util/email.util'
+import { CryptoService } from '@libs/common/service/crypto.service'
+import { TokenService } from '@libs/common/service/token.service'
 import { Module } from '@nestjs/common'
 import { ConfigModule, ConfigType } from '@nestjs/config'
 import { JwtModule } from '@nestjs/jwt'
@@ -9,7 +7,6 @@ import { PassportModule } from '@nestjs/passport'
 import commonEnvConfig from './config/env/common-env.config'
 import { JwtAccessStrategy } from './strategy/jwt-access.strategy'
 import { JwtRefreshStrategy } from './strategy/jwt-refresh.strategy'
-import { ClsUtil } from './util/cls.util'
 
 @Module({
     imports: [
@@ -23,7 +20,7 @@ import { ClsUtil } from './util/cls.util'
             })
         })
     ],
-    providers: [BcryptUtil, JwtUtil, OtpUtil, EmailUtil, ClsUtil, JwtAccessStrategy, JwtRefreshStrategy],
-    exports: [BcryptUtil, JwtUtil, OtpUtil, EmailUtil, ClsUtil, JwtAccessStrategy, JwtRefreshStrategy]
+    providers: [CryptoService, TokenService, JwtAccessStrategy, JwtRefreshStrategy],
+    exports: [CryptoService, TokenService, JwtAccessStrategy, JwtRefreshStrategy]
 })
 export class CommonModule {}

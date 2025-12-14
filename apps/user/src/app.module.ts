@@ -8,7 +8,7 @@ import { PrismaModule } from '@libs/prisma/prisma.module'
 import { CacheModule } from '@nestjs/cache-manager'
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
-import { APP_GUARD, RouterModule } from '@nestjs/core'
+import { APP_GUARD } from '@nestjs/core'
 import { WinstonModule } from 'nest-winston'
 import { ClsModule } from 'nestjs-cls'
 import * as path from 'path'
@@ -20,25 +20,6 @@ import { NotificationModule } from './v1/notification/notification.module'
 import { PostModule } from './v1/post/post.module'
 import { UserModule } from './v1/user/user.module'
 
-const childrenRoutes = [
-    {
-        path: '',
-        module: UserModule
-    },
-    {
-        path: 'auth',
-        module: AuthModule
-    },
-    {
-        path: 'posts',
-        module: PostModule
-    },
-    {
-        path: 'notifications',
-        module: NotificationModule
-    }
-]
-
 @Module({
     imports: [
         ConfigModule.forRoot({
@@ -47,7 +28,7 @@ const childrenRoutes = [
                 path.resolve(process.cwd(), `./envs/.env.${process.env.NODE_ENV}`), // 공통
                 path.resolve(process.cwd(), `./apps/user/envs/.env.${process.env.NODE_ENV}`) // 앱 전용
             ],
-            load: [userEnvConfig, commonEnvConfig],
+            load: [commonEnvConfig, userEnvConfig],
             validate: validateUserEnv
         }),
         CacheModule.registerAsync({
@@ -61,13 +42,6 @@ const childrenRoutes = [
             global: true,
             middleware: { mount: false }
         }),
-        RouterModule.register([
-            {
-                path: 'user',
-                module: AppModule,
-                children: childrenRoutes
-            }
-        ]),
         WinstonModule.forRootAsync(winstonModuleAsyncOptions),
         PrismaModule,
         AuthModule,

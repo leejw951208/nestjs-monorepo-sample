@@ -1,134 +1,194 @@
+import commonEnvConfig from '@libs/common/config/env/common-env.config'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { AUTH_ERROR, USER_ERROR } from '@libs/common/exception/error.code'
-import { BcryptUtil } from '@libs/common/util/bcrypt.util'
-import { JwtUtil } from '@libs/common/util/jwt.util'
-import { OtpUtil, OtpData, ResetTokenPayload } from '@libs/common/util/otp.util'
-import { EmailUtil } from '@libs/common/util/email.util'
-import { AUTH_CONSTANTS } from '@libs/common/constant/auth.constant'
-import { UserModel } from '@libs/models/user/user.model'
+import { CryptoService } from '@libs/common/service/crypto.service'
+import { TokenService } from '@libs/common/service/token.service'
+import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { CACHE_MANAGER } from '@nestjs/cache-manager'
 import { Inject, Injectable } from '@nestjs/common'
-import { UserStatus } from '@prisma/client'
+import { type ConfigType } from '@nestjs/config'
+import { Owner, UserStatus } from '@prisma/client'
 import { type Cache } from 'cache-manager'
 import { plainToInstance } from 'class-transformer'
-import { randomUUID } from 'crypto'
+import { randomBytes, randomInt, randomUUID, timingSafeEqual } from 'crypto'
 import { UserResponseDto } from '../user/dto/user-response.dto'
-import { RefreshTokenResponseDto } from './dto/refresh-token-response.dto'
 import { PasswordResetConfirmRequestDto } from './dto/password-reset-confirm.request.dto'
-import { SigninRequestDto } from './dto/signin-request.dto'
-import { SigninResponseDto } from './dto/signin-response.dto'
-import { SignupRequestDto } from './dto/signup-request.dto'
-import { UserRepository } from '../user/user.repository'
 import { PasswordResetInitRequestDto } from './dto/password-reset-init.request.dto'
 import { PasswordResetVerifyRequestDto } from './dto/password-reset-verify.request.dto'
 import { PasswordResetVerifyResponseDto } from './dto/password-reset-verify.response.dto'
-import { TokenService } from '../token/token.service'
+import { RefreshTokenResponseDto } from './dto/refresh-token-response.dto'
+import { SigninRequestDto } from './dto/signin-request.dto'
+import { SigninResponseDto } from './dto/signin-response.dto'
+import { SignupRequestDto } from './dto/signup-request.dto'
 
+type PasswordResetCodeData = {
+    // 재설정 코드
+    code: string
+    // 코드 만료 시간 (Epoch time)
+    expiresAt: number
+    // 시도 횟수
+    attempts: number
+}
+
+// 서비스 주입 가능(Injectable) 데코레이터: 이 클래스가 NestJS IoC 컨테이너에 의해 관리되는 서비스임을 나타냅니다.
 @Injectable()
 export class AuthService {
+    // 비밀번호 재설정 코드 캐시 키 접두사
+    private readonly PASSWORD_RESET_CODE_PREFIX = 'password-reset:code:'
+    // 비밀번호 재설정 토큰 캐시 키 접두사
+    private readonly PASSWORD_RESET_TOKEN_PREFIX = 'password-reset:token:'
+    // 비밀번호 재설정 코드 길이
+    private readonly PASSWORD_RESET_CODE_LENGTH = 6
+    // 비밀번호 재설정 코드 최대 시도 횟수
+    private readonly PASSWORD_RESET_CODE_MAX_ATTEMPTS = 5
+    // 비밀번호 재설정 코드 유효 시간 (밀리초)
+    private readonly PASSWORD_RESET_CODE_TTL = 300000 // 5분
+    // 비밀번호 재설정 토큰 유효 시간 (밀리초)
+    private readonly PASSWORD_RESET_TOKEN_TTL = 900000 // 15분
+
     constructor(
-        @Inject(CACHE_MANAGER)
-        private readonly cacheManager: Cache,
-        private readonly bcryptUtil: BcryptUtil,
-        private readonly jwtUtil: JwtUtil,
-        private readonly otpUtil: OtpUtil,
-        private readonly emailUtil: EmailUtil,
-        private readonly userRepository: UserRepository,
+        @Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient,
+        @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+        @Inject(commonEnvConfig.KEY) private readonly config: ConfigType<typeof commonEnvConfig>,
+        private readonly cryptoService: CryptoService,
         private readonly tokenService: TokenService
     ) {}
 
+    /**
+     * @summary 사용자 회원가입
+     * @description 제공된 정보를 사용하여 새로운 사용자를 생성하고 비밀번호를 해싱하여 저장합니다.
+     * @param reqDto 회원가입 요청 데이터 (이메일, 비밀번호 등)
+     * @returns Promise<void>
+     * @throws {BaseException} 이미 존재하는 이메일인 경우 USER_ERROR.ALREADY_EXISTS_EMAIL 에러 발생
+     */
     async signup(reqDto: SignupRequestDto): Promise<void> {
-        // 이메일 중복 검사
-        const foundUser = await this.userRepository.findUser({
-            where: { email: reqDto.email }
+        // 1. 이미 존재하는 이메일인지 확인
+        const foundUser = await this.prisma.user.findFirst({
+            where: { email: reqDto.email, isDeleted: false }
         })
+        // 2. 이미 존재하면 에러 발생
         if (foundUser) throw new BaseException(USER_ERROR.ALREADY_EXISTS_EMAIL, this.constructor.name)
 
-        const hashedPassword = await this.bcryptUtil.hash(reqDto.password)
-        const createdUser = UserModel.create({
-            ...reqDto,
-            password: hashedPassword,
-            status: UserStatus.ACTIVE
+        // 3. 비밀번호 해싱
+        const hashedPassword = await this.cryptoService.hash(reqDto.password)
+        // 4. 사용자 생성
+        await this.prisma.user.create({
+            data: {
+                ...reqDto,
+                password: hashedPassword,
+                status: UserStatus.ACTIVE
+            }
         })
-        await this.userRepository.createUser({ data: createdUser })
     }
 
+    /**
+     * @summary 사용자 로그인
+     * @description 사용자 이메일과 비밀번호를 검증하고, 액세스 토큰 및 리프레시 토큰을 발급합니다.
+     * @param reqDto 로그인 요청 데이터 (이메일, 비밀번호)
+     * @returns {Promise<{ resDto: SigninResponseDto; refreshToken: string }>} 생성된 액세스 토큰, 사용자 정보, 리프레시 토큰을 포함하는 객체
+     * @throws {BaseException} 사용자를 찾을 수 없는 경우 USER_ERROR.NOT_FOUND 에러 발생
+     * @throws {BaseException} 비밀번호가 일치하지 않는 경우 AUTH_ERROR.PASSWORD_NOT_MATCHED 에러 발생
+     */
     async signin(reqDto: SigninRequestDto): Promise<{ resDto: SigninResponseDto; refreshToken: string }> {
-        // 회원 조회
-        const foundUser = await this.userRepository.findUser({ where: { email: reqDto.email } })
+        // 1. 이메일로 사용자 찾기
+        const foundUser = await this.prisma.user.findFirst({ where: { email: reqDto.email, isDeleted: false } })
+        // 사용자가 존재하지 않으면 에러 발생
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
-        // 비밀번호 비교
-        const isMatched = await this.bcryptUtil.compare(reqDto.password, foundUser.password)
+        // 2. 비밀번호 일치 여부 확인
+        const isMatched = await this.cryptoService.compare(reqDto.password, foundUser.password)
+        // 비밀번호가 일치하지 않으면 에러 발생
         if (!isMatched) throw new BaseException(AUTH_ERROR.PASSWORD_NOT_MATCHED, this.constructor.name)
 
-        // 토큰 생성
-        const jti = randomUUID()
+        // 3. JTI (JWT ID) 생성 및 토큰 발급
+        const jti = randomUUID() // JWT 고유 ID
+        // 액세스 토큰과 리프레시 토큰을 병렬로 생성
         const [accessToken, refreshToken] = await Promise.all([
-            this.jwtUtil.createAccessToken(foundUser, 'api', jti),
-            this.jwtUtil.createRefreshToken(foundUser, 'api', jti)
+            this.tokenService.createAccessToken(foundUser.id, Owner.USER, jti),
+            this.tokenService.createRefreshToken(foundUser.id, Owner.USER, jti)
         ])
 
-        // Redis와 DB에 리프레시 토큰 저장
-        const hashedRefreshToken = await this.bcryptUtil.hash(refreshToken)
-        const TTL = AUTH_CONSTANTS.JWT.REFRESH_TOKEN_EXPIRES_IN
-        await this.tokenService.saveRefreshToken(foundUser.id, jti, hashedRefreshToken, TTL)
+        // 4. 리프레시 토큰 해싱 및 저장
+        const hashedRefreshToken = await this.cryptoService.hash(refreshToken)
+        await this.tokenService.saveRefreshToken(foundUser.id, Owner.USER, jti, hashedRefreshToken, this.config.jwtRefreshTokenTtl)
 
+        // 5. 응답 DTO 생성
         const resDto = plainToInstance(
             SigninResponseDto,
             {
                 accessToken,
-                user: plainToInstance(UserResponseDto, foundUser, { excludeExtraneousValues: true })
+                user: plainToInstance(UserResponseDto, foundUser, { excludeExtraneousValues: true }) // 사용자 정보를 DTO로 변환
             },
             { excludeExtraneousValues: true }
         )
 
+        // 6. 결과 반환
         return { resDto, refreshToken }
     }
 
+    /**
+     * @summary 사용자 로그아웃
+     * @description 제공된 리프레시 토큰을 검증하고, 해당 리프레시 토큰을 삭제하여 로그아웃 처리합니다.
+     * @param refreshToken 사용자의 리프레시 토큰
+     * @returns Promise<void>
+     * @throws {BaseException} 사용자를 찾을 수 없는 경우 USER_ERROR.NOT_FOUND 에러 발생
+     */
     async signout(refreshToken: string): Promise<void> {
-        // 토큰 검증 및 페이로드 추출
-        const payload = await this.jwtUtil.verify(refreshToken, 're')
+        // 1. 리프레시 토큰 검증하여 페이로드 추출
+        const payload = await this.tokenService.verify(refreshToken, 're')
 
-        // 회원 정보 조회
-        const foundUser = await this.userRepository.findUser({ where: { id: payload.id } })
+        // 2. 페이로드의 ID로 사용자 찾기
+        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id, isDeleted: false } })
+        // 사용자를 찾을 수 없으면 에러 발생
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
-        // Redis와 DB에서 리프레시 토큰 제거
-        await this.tokenService.deleteRefreshToken(foundUser.id, payload.jti)
+        // 3. 해당 리프레시 토큰 삭제
+        await this.tokenService.deleteRefreshToken(foundUser.id, Owner.USER, payload.jti)
     }
 
+    /**
+     * @summary 토큰 재발급
+     * @description 만료된 액세스 토큰을 새로운 액세스 토큰과 리프레시 토큰으로 재발급합니다.
+     * @param refreshToken 기존 리프레시 토큰
+     * @returns {Promise<{ resDto: RefreshTokenResponseDto; refreshToken: string }>} 새로운 액세스 토큰과 리프레시 토큰을 포함하는 객체
+     * @throws {BaseException} 사용자를 찾을 수 없는 경우 USER_ERROR.NOT_FOUND 에러 발생
+     * @throws {BaseException} 캐시에 리프레시 토큰이 없는 경우 AUTH_ERROR.MISSING_REFRESH_TOKEN 에러 발생
+     * @throws {BaseException} 기존 리프레시 토큰이 유효하지 않은 경우 AUTH_ERROR.INVALID_REFRESH_TOKEN 에러 발생
+     */
     async refreshToken(refreshToken: string): Promise<{ resDto: RefreshTokenResponseDto; refreshToken: string }> {
-        // 토큰 검증 및 페이로드 추출
-        const payload = await this.jwtUtil.verify(refreshToken, 're')
+        // 1. 기존 리프레시 토큰 검증하여 페이로드 추출
+        const payload = await this.tokenService.verify(refreshToken, 're')
 
-        // 회원 정보 조회
-        const foundUser = await this.userRepository.findUser({ where: { id: payload.id } })
+        // 2. 페이로드의 ID로 사용자 찾기
+        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id, isDeleted: false } })
+        // 사용자를 찾을 수 없으면 에러 발생
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
-        // Redis에 저장된 리프레시 토큰 조회
-        const foundCachedToken = await this.tokenService.getRefreshToken(foundUser.id, payload.jti)
+        // 3. 캐시에서 저장된 리프레시 토큰 가져오기
+        const foundCachedToken = await this.tokenService.getRefreshToken(foundUser.id, Owner.USER, payload.jti)
+        // 캐시에 토큰이 없으면 에러 발생 (만료되었거나 이미 사용됨)
         if (!foundCachedToken) throw new BaseException(AUTH_ERROR.MISSING_REFRESH_TOKEN, this.constructor.name)
 
-        // 리프레시 토큰 비교
-        const isMatched = await this.bcryptUtil.compare(refreshToken, foundCachedToken)
+        // 4. 기존 리프레시 토큰과 캐시된 토큰 비교
+        const isMatched = await this.cryptoService.compare(refreshToken, foundCachedToken)
+        // 토큰이 일치하지 않으면 에러 발생
         if (!isMatched) throw new BaseException(AUTH_ERROR.INVALID_REFRESH_TOKEN, this.constructor.name)
 
-        // 기존 리프레시 토큰 삭제 (Redis, DB, 토큰 목록)
-        await this.tokenService.deleteRefreshToken(foundUser.id, payload.jti)
+        // 5. 기존 리프레시 토큰 삭제 (일회용 토큰이므로)
+        await this.tokenService.deleteRefreshToken(foundUser.id, Owner.USER, payload.jti)
 
-        // 새로운 토큰 생성
+        // 6. 새로운 JTI 생성 및 새 토큰 발급
         const jti = randomUUID()
         const [newAccessToken, newRefreshToken] = await Promise.all([
-            this.jwtUtil.createAccessToken(foundUser, 'api', jti),
-            this.jwtUtil.createRefreshToken(foundUser, 'api', jti)
+            this.tokenService.createAccessToken(foundUser.id, Owner.USER, jti),
+            this.tokenService.createRefreshToken(foundUser.id, Owner.USER, jti)
         ])
 
-        // 새로운 리프레시 토큰 저장 (Redis, DB, 토큰 목록)
-        const hashedNewRefreshToken = await this.bcryptUtil.hash(newRefreshToken)
-        const TTL = AUTH_CONSTANTS.JWT.REFRESH_TOKEN_EXPIRES_IN
-        await this.tokenService.saveRefreshToken(foundUser.id, jti, hashedNewRefreshToken, TTL)
+        // 7. 새로운 리프레시 토큰 해싱 및 저장
+        const hashedNewRefreshToken = await this.cryptoService.hash(newRefreshToken)
+        await this.tokenService.saveRefreshToken(foundUser.id, Owner.USER, jti, hashedNewRefreshToken, this.config.jwtRefreshTokenTtl)
 
+        // 8. 결과 반환
         return {
             resDto: plainToInstance(RefreshTokenResponseDto, { accessToken: newAccessToken }),
             refreshToken: newRefreshToken
@@ -136,360 +196,170 @@ export class AuthService {
     }
 
     /**
-     * 비밀번호 재설정 OTP 발급
-     *
-     * 비밀번호 재설정 플로우의 첫 번째 단계로, 사용자 이메일로 OTP를 발급합니다.
-     *
-     * @description
-     * - 이메일을 정규화하여 대소문자 구분 없이 처리
-     * - 사용자가 존재하지 않아도 에러를 반환하지 않음 (보안: 이메일 존재 여부 노출 방지)
-     * - Rate limiting을 통해 무차별 대입 공격 방지 (1시간당 5회)
-     * - Flow ID를 생성하여 전체 재설정 플로우의 무결성 추적
-     * - OTP는 5분간 유효하며, 최대 5회 시도 가능
-     * - OTP와 Flow ID를 별도의 캐시 키로 관리하여 보안 강화
-     *
-     * @param reqDto - 이메일 정보를 포함한 요청 DTO
+     * @summary 비밀번호 재설정 인증 코드 발급
+     * @description 사용자 이메일을 통해 비밀번호 재설정을 위한 인증 코드를 생성하고 캐시에 저장한 후 이메일로 발송합니다.
+     * @param reqDto 비밀번호 재설정 초기화 요청 데이터 (이메일)
      * @returns Promise<void>
      */
-    async issueOtp(reqDto: PasswordResetInitRequestDto): Promise<void> {
-        // 1. 이메일 정규화 (소문자 변환 및 공백 제거)
-        const normalizedEmail = this.emailUtil.normalize(reqDto.email)
-        const user = await this.userRepository.findUser({ where: { email: normalizedEmail } })
+    async issueCode(reqDto: PasswordResetInitRequestDto): Promise<void> {
+        // 1. 이메일 정규화 (공백 제거 및 소문자 변환)
+        const normalizedEmail = reqDto.email.trim().toLowerCase()
+        // 2. 이메일로 사용자 찾기
+        const user = await this.prisma.user.findFirst({ where: { email: normalizedEmail, isDeleted: false } })
 
-        // 2. 사용자 없어도 보안상 에러를 반환하지 않음 (이메일 존재 여부 노출 방지)
+        // 사용자가 없으면 코드 발급을 중단하고 종료 (보안상의 이유로 사용자 존재 여부 노출 안 함)
         if (!user) return
 
-        // 3. Rate limiting 체크 (1시간당 5회 제한)
-        await this.manageRateLimit(user.id, 'init', 'check')
+        // 3. 비밀번호 재설정 코드 생성
+        const code = randomInt(0, 10 ** this.PASSWORD_RESET_CODE_LENGTH) // 지정된 길이의 난수 생성
+            .toString()
+            .padStart(this.PASSWORD_RESET_CODE_LENGTH, '0') // 지정된 길이만큼 앞에 '0' 채우기
 
-        // 4. Flow ID 생성 (재설정 플로우 추적용)
-        // Flow ID는 OTP 발급부터 비밀번호 재설정 완료까지 동일하게 유지되어야 함
-        const flowId = randomUUID()
+        // 4. 캐시에 저장할 코드 데이터 객체 생성
+        const codeData: PasswordResetCodeData = {
+            code,
+            expiresAt: Date.now() + this.PASSWORD_RESET_CODE_TTL, // 현재 시간 + TTL
+            attempts: 0 // 시도 횟수 초기화
+        }
 
-        // 5. OTP 생성 및 데이터 구성
-        // OTP는 6자리 숫자, 5분 유효, 최대 5회 시도 가능
-        const otp = this.otpUtil.generateOtp()
-        const otpData = this.otpUtil.createOtpData(otp, flowId)
-
-        // 6. 캐시 키 생성 (사용자 ID 기반)
-        const otpKey = this.otpUtil.createOtpKey(user.id)
-        const flowKey = this.otpUtil.createFlowKey(user.id)
-
-        // 7. Redis에 OTP 및 Flow ID 저장
-        // OTP: 5분 TTL, Flow: 30분 TTL (전체 플로우 완료 시간)
-        await Promise.all([
-            this.cacheManager.set(otpKey, JSON.stringify(otpData), AUTH_CONSTANTS.CACHE_TTL.OTP),
-            this.cacheManager.set(flowKey, flowId, AUTH_CONSTANTS.CACHE_TTL.FLOW)
-        ])
-
-        // 8. 이메일로 OTP 전송
-        await this.sendOtpEmail(user.email, otp)
-
-        // 9. Rate limiting 카운트 증가
-        await this.manageRateLimit(user.id, 'init', 'increment')
+        // 5. 캐시에 코드 데이터 저장 (키: `password-reset:code:userId`, 값: JSON 문자열, 만료 시간: TTL)
+        await this.cacheManager.set(`${this.PASSWORD_RESET_CODE_PREFIX}${user.id}`, JSON.stringify(codeData), this.PASSWORD_RESET_CODE_TTL)
+        // 6. 사용자 이메일로 인증 코드 발송
+        await this.sendVerificationEmail(user.email, code)
     }
 
     /**
-     * OTP 검증 및 리셋 토큰 발급
-     *
-     * 비밀번호 재설정 플로우의 두 번째 단계로, 사용자가 입력한 OTP를 검증하고 리셋 토큰을 발급합니다.
-     *
-     * @description
-     * - OTP 검증 실패 시 시도 횟수 증가 (최대 5회)
-     * - Flow ID 무결성 검증으로 재설정 플로우의 일관성 보장
-     * - OTP 검증 성공 시 일회용으로 즉시 삭제
-     * - 리셋 토큰은 15분간 유효
-     * - Flow ID는 비밀번호 재설정 완료까지 유지
-     *
-     * @param reqDto - 이메일과 OTP를 포함한 요청 DTO
-     * @returns Promise<PasswordResetVerifyResponseDto> - 리셋 토큰을 포함한 응답
-     * @throws USER_ERROR.NOT_FOUND - 사용자를 찾을 수 없는 경우
-     * @throws AUTH_ERROR.OTP_EXPIRED - OTP가 만료된 경우
-     * @throws AUTH_ERROR.INVALID_RESET_TOKEN - Flow ID가 일치하지 않는 경우
-     * @throws AUTH_ERROR.OTP_INVALID - OTP가 일치하지 않는 경우
-     * @throws AUTH_ERROR.OTP_MAX_ATTEMPTS_REACHED - 최대 시도 횟수 초과
+     * @summary 인증 코드 확인 및 리셋 토큰 발급
+     * @description 사용자가 입력한 인증 코드를 확인하고, 올바르면 비밀번호 재설정 토큰을 발급합니다.
+     * @param reqDto 비밀번호 재설정 확인 요청 데이터 (이메일, OTP 코드)
+     * @returns {Promise<PasswordResetVerifyResponseDto>} 비밀번호 재설정 토큰을 포함하는 객체
+     * @throws {BaseException} 인증 코드가 유효하지 않거나 사용자를 찾을 수 없는 경우 AUTH_ERROR.VERIFICATION_CODE_INVALID 에러 발생
+     * @throws {BaseException} 인증 코드가 만료된 경우 AUTH_ERROR.VERIFICATION_CODE_EXPIRED 에러 발생
+     * @throws {BaseException} 인증 코드 시도 횟수가 초과된 경우 AUTH_ERROR.VERIFICATION_CODE_MAX_ATTEMPTS_REACHED 에러 발생
      */
-    async verifyOtp(reqDto: PasswordResetVerifyRequestDto): Promise<PasswordResetVerifyResponseDto> {
-        // 1. 이메일 정규화 및 사용자 조회
-        const normalizedEmail = this.emailUtil.normalize(reqDto.email)
-        const user = await this.userRepository.findUser({ where: { email: normalizedEmail } })
+    async verifyCode(reqDto: PasswordResetVerifyRequestDto): Promise<PasswordResetVerifyResponseDto> {
+        // 1. 이메일 정규화
+        const normalizedEmail = reqDto.email.trim().toLowerCase()
+        // 2. 이메일로 사용자 찾기
+        const user = await this.prisma.user.findFirst({ where: { email: normalizedEmail, isDeleted: false } })
 
-        // 사용자가 없어도 일관된 처리 (이메일 열거 공격 방지)
+        // 3. 사용자가 없으면 지연 후 에러 발생 (보안상의 이유로 사용자 존재 여부 노출 방지)
         if (!user) {
-            // 타이밍 분석 방지를 위한 랜덤 지연 (100-300ms)
-            await new Promise((resolve) => setTimeout(resolve, 100 + Math.random() * 200))
-            throw new BaseException(AUTH_ERROR.OTP_INVALID, this.constructor.name)
+            await new Promise((resolve) => setTimeout(resolve, 100 + Math.random() * 200)) // 봇 공격 방지를 위한 지연
+            throw new BaseException(AUTH_ERROR.VERIFICATION_CODE_INVALID, this.constructor.name)
         }
 
-        // 2. Rate limiting 체크 (1시간당 10회 제한)
-        await this.manageRateLimit(user.id, 'verify', 'check')
+        // 4. 캐시 키 생성 및 저장된 코드 데이터 가져오기
+        const codeKey = `${this.PASSWORD_RESET_CODE_PREFIX}${user.id}`
+        const storedData = await this.cacheManager.get<string>(codeKey)
 
-        // 3. 캐시 키 생성
-        const otpKey = this.otpUtil.createOtpKey(user.id)
-        const flowKey = this.otpUtil.createFlowKey(user.id)
-
-        // 3. Redis에서 OTP 데이터 및 Flow ID 조회
-        const [storedOtpData, storedFlowId] = await Promise.all([
-            this.cacheManager.get<string>(otpKey),
-            this.cacheManager.get<string>(flowKey)
-        ])
-
-        // 4. OTP 또는 Flow ID가 없으면 만료된 것으로 간주
-        if (!storedOtpData || !storedFlowId) {
-            throw new BaseException(AUTH_ERROR.OTP_EXPIRED, this.constructor.name)
+        // 5. 저장된 데이터가 없으면 코드 만료 에러 발생
+        if (!storedData) {
+            throw new BaseException(AUTH_ERROR.VERIFICATION_CODE_EXPIRED, this.constructor.name)
         }
 
-        const otpData: OtpData = JSON.parse(storedOtpData)
+        // 6. JSON 문자열을 PasswordResetCodeData 객체로 파싱
+        const codeData: PasswordResetCodeData = JSON.parse(storedData)
 
-        // 5. Flow ID 무결성 검증
-        // OTP 데이터 내의 flowId와 별도 저장된 flowId가 일치해야 함
-        // 이를 통해 중간에 플로우가 변조되지 않았음을 보장
-        if (storedFlowId !== otpData.flowId) {
-            throw new BaseException(AUTH_ERROR.INVALID_RESET_TOKEN, this.constructor.name)
+        // 7. 코드 만료 시간 확인
+        if (Date.now() > codeData.expiresAt) {
+            await this.cacheManager.del(codeKey) // 만료된 코드 캐시에서 삭제
+            throw new BaseException(AUTH_ERROR.VERIFICATION_CODE_EXPIRED, this.constructor.name)
         }
 
-        // 6. OTP 만료 확인 (생성 시간 기준 5분)
-        if (this.otpUtil.isExpired(otpData)) {
-            await this.cacheManager.del(otpKey)
-            throw new BaseException(AUTH_ERROR.OTP_EXPIRED, this.constructor.name)
+        // 8. 최대 시도 횟수 확인
+        if (codeData.attempts >= this.PASSWORD_RESET_CODE_MAX_ATTEMPTS) {
+            await this.cacheManager.del(codeKey) // 최대 시도 횟수 초과 시 코드 캐시에서 삭제
+            throw new BaseException(AUTH_ERROR.VERIFICATION_CODE_MAX_ATTEMPTS_REACHED, this.constructor.name)
         }
 
-        // 7. OTP 검증 (입력값과 저장된 OTP 비교, 시도 횟수 확인)
-        const isValidOtp = this.otpUtil.verifyOtpCode(reqDto.otp, otpData)
+        // 9. 입력된 OTP 코드와 저장된 코드 유효성 검사
+        const isValid = this.validateCode(reqDto.otp, codeData.code)
 
-        if (!isValidOtp) {
-            // 7-1. Rate limiting 증가 (실패한 시도 기록)
-            await this.manageRateLimit(user.id, 'verify', 'increment')
-
-            // 7-2. 시도 횟수 증가
-            const updatedOtpData = this.otpUtil.incrementAttempts(otpData)
-
-            // 7-3. 최대 시도 횟수 초과 확인 (5회)
-            if (this.otpUtil.isMaxAttemptsReached(updatedOtpData)) {
-                // 최대 시도 횟수 초과 시 OTP 삭제 및 에러 반환
-                await this.cacheManager.del(otpKey)
-                throw new BaseException(AUTH_ERROR.OTP_MAX_ATTEMPTS_REACHED, this.constructor.name)
-            }
-
-            // 7-4. 업데이트된 시도 횟수 저장
-            await this.cacheManager.set(otpKey, JSON.stringify(updatedOtpData), AUTH_CONSTANTS.CACHE_TTL.OTP)
-
-            throw new BaseException(AUTH_ERROR.OTP_INVALID, this.constructor.name)
+        // 10. 코드가 유효하지 않으면 시도 횟수 증가 및 에러 발생
+        if (!isValid) {
+            codeData.attempts += 1
+            await this.cacheManager.set(codeKey, JSON.stringify(codeData), this.PASSWORD_RESET_CODE_TTL) // 업데이트된 코드 데이터 캐시에 저장
+            throw new BaseException(AUTH_ERROR.VERIFICATION_CODE_INVALID, this.constructor.name)
         }
 
-        // 8. OTP 검증 성공 후 OTP 키 삭제 (일회용)
-        // flowKey는 비밀번호 재설정 완료 시까지 유지
-        await this.cacheManager.del(otpKey)
+        // 11. 코드가 유효하면 캐시에서 코드 삭제
+        await this.cacheManager.del(codeKey)
 
-        // 9. Rate limiting 증가 (성공한 시도 기록)
-        await this.manageRateLimit(user.id, 'verify', 'increment')
+        // 12. 비밀번호 재설정 토큰 생성 및 캐시에 저장
+        const resetToken = randomBytes(16).toString('hex') // 16바이트 랜덤 토큰 생성
+        await this.cacheManager.set(`${this.PASSWORD_RESET_TOKEN_PREFIX}${resetToken}`, user.id, this.PASSWORD_RESET_TOKEN_TTL)
 
-        // 10. Reset 토큰 생성 (15분 유효)
-        // Flow ID를 포함하여 리셋 토큰의 무결성 보장
-        const resetToken = await this.createResetToken(user.id, otpData.flowId)
-
+        // 13. 재설정 토큰 반환
         return plainToInstance(PasswordResetVerifyResponseDto, { resetToken })
     }
 
     /**
-     * 비밀번호 재설정
-     *
-     * 비밀번호 재설정 플로우의 마지막 단계로, 리셋 토큰을 검증하고 새 비밀번호로 변경합니다.
-     *
-     * @description
-     * - 리셋 토큰의 유효성 및 만료 여부 확인
-     * - Flow ID 무결성 검증으로 전체 플로우의 일관성 보장
-     * - 보안 관련 캐시 정리 (OTP, Rate limit 등)
-     * - 비밀번호 변경 후 모든 세션 종료 (보안 강화)
-     * - 리셋 토큰은 일회용으로 즉시 삭제
-     *
-     * @param reqDto - 리셋 토큰과 새 비밀번호를 포함한 요청 DTO
+     * @summary 비밀번호 재설정
+     * @description 제공된 재설정 토큰과 새로운 비밀번호를 사용하여 사용자 비밀번호를 업데이트합니다.
+     * @param reqDto 비밀번호 재설정 확인 요청 데이터 (리셋 토큰, 새로운 비밀번호)
      * @returns Promise<void>
-     * @throws AUTH_ERROR.INVALID_RESET_TOKEN - 리셋 토큰이 유효하지 않거나 Flow ID가 일치하지 않는 경우
-     * @throws USER_ERROR.NOT_FOUND - 사용자를 찾을 수 없는 경우
+     * @throws {BaseException} 재설정 토큰이 유효하지 않은 경우 AUTH_ERROR.INVALID_RESET_TOKEN 에러 발생
+     * @throws {BaseException} 사용자를 찾을 수 없는 경우 USER_ERROR.NOT_FOUND 에러 발생
      */
     async resetPassword(reqDto: PasswordResetConfirmRequestDto): Promise<void> {
         const { resetToken, newPassword } = reqDto
 
-        // 1. Reset 토큰 검증 (유효성, 만료 여부)
-        const payload = await this.verifyResetToken(resetToken)
+        // 1. 캐시에서 재설정 토큰에 해당하는 사용자 ID 가져오기
+        const tokenKey = `${this.PASSWORD_RESET_TOKEN_PREFIX}${resetToken}`
+        const userId = await this.cacheManager.get<number>(tokenKey)
 
-        // 2. Flow ID 무결성 검증
-        // OTP 발급 시 생성된 Flow ID와 리셋 토큰의 Flow ID가 일치해야 함
-        const flowKey = this.otpUtil.createFlowKey(payload.id)
-        const storedFlowId = await this.cacheManager.get<string>(flowKey)
-
-        if (!storedFlowId || storedFlowId !== payload.flowId) {
+        // 2. 사용자 ID가 없으면 유효하지 않은 토큰 에러 발생
+        if (!userId) {
             throw new BaseException(AUTH_ERROR.INVALID_RESET_TOKEN, this.constructor.name)
         }
 
-        // 3. 사용자 조회
-        const user = await this.userRepository.findUser({ where: { id: payload.id } })
-
+        // 3. 사용자 ID로 사용자 찾기
+        const user = await this.prisma.user.findFirst({ where: { id: userId, isDeleted: false } })
+        // 사용자를 찾을 수 없으면 에러 발생
         if (!user) {
             throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
         }
 
-        // 4. 새 비밀번호 해싱 (DB 작업 전 사전 준비)
-        const hashedPassword = await this.bcryptUtil.hash(newPassword)
+        // 4. 새로운 비밀번호 해싱
+        const hashedPassword = await this.cryptoService.hash(newPassword)
 
-        // 5. 리셋 토큰 및 플로우 키 삭제 (일회용)
-        // CRITICAL: 비밀번호 변경 BEFORE DB 업데이트
-        // 토큰을 먼저 삭제하여 재사용 공격 방지 (비밀번호 업데이트 실패 시에도 토큰은 이미 소비됨)
-        const tokenKey = `${AUTH_CONSTANTS.CACHE_KEYS.ACTIVE_RESET_TOKEN_PREFIX}${resetToken}`
-        await Promise.all([
-            this.cacheManager.del(tokenKey), // 리셋 토큰 삭제
-            this.cacheManager.del(flowKey) // 플로우 키 삭제
-        ])
-
-        // 6. 비밀번호 업데이트
-        await this.userRepository.updateUser({
+        // 5. 캐시에서 재설정 토큰 삭제 및 사용자 비밀번호 업데이트
+        await this.cacheManager.del(tokenKey)
+        await this.prisma.user.update({
             where: { id: user.id },
             data: { password: hashedPassword }
         })
 
-        // 7. 보안 관련 캐시 정리 (OTP, Rate limit 등)
-        await this.clearSecurityCache(user.id)
-
-        // 8. 모든 세션 종료 (보안 강화)
-        // 비밀번호 변경 시 기존 세션을 모두 무효화하여 보안 강화
-        await this.tokenService.deleteAllRefreshTokens(user.id)
+        // 6. 해당 사용자의 모든 리프레시 토큰 삭제 (보안 강화)
+        await this.tokenService.deleteAllRefreshTokens(user.id, Owner.USER)
     }
 
-    // ==================== 헬퍼 메서드 ====================
-
-    /**
-     * Rate Limiting 관리
-     *
-     * @description
-     * 비밀번호 재설정 플로우에서 무차별 대입 공격을 방지하기 위한 Rate Limiting을 관리합니다.
-     * - init: OTP 발급 요청 제한 (1시간당 5회)
-     * - verify: OTP 검증 시도 제한 (1시간당 10회)
-     *
-     * @param userId - 사용자 ID
-     * @param type - Rate limiting 타입 ('init': OTP 발급, 'verify': OTP 검증)
-     * @param action - 수행할 작업 ('check': 제한 확인, 'increment': 카운트 증가)
-     * @throws AUTH_ERROR.RATE_LIMIT_EXCEEDED - 최대 시도 횟수 초과 시
-     */
-    private async manageRateLimit(userId: number, type: 'init' | 'verify', action: 'check' | 'increment'): Promise<void> {
-        // Rate limiting 키 및 최대 시도 횟수 설정
-        const prefix =
-            type === 'init' ? AUTH_CONSTANTS.CACHE_KEYS.RATE_LIMIT_INIT_PREFIX : AUTH_CONSTANTS.CACHE_KEYS.RATE_LIMIT_VERIFY_PREFIX
-        const key = `${prefix}${userId}`
-        const maxAttempts = type === 'init' ? AUTH_CONSTANTS.RATE_LIMIT.MAX_INIT_ATTEMPTS : AUTH_CONSTANTS.RATE_LIMIT.MAX_VERIFY_ATTEMPTS
-
-        if (action === 'check') {
-            // 현재 시도 횟수 확인
-            const attempts = (await this.cacheManager.get<number>(key)) || 0
-            if (attempts >= maxAttempts) {
-                throw new BaseException(AUTH_ERROR.RATE_LIMIT_EXCEEDED, this.constructor.name)
-            }
-        } else if (action === 'increment') {
-            // 시도 횟수 증가 (1시간 TTL)
-            const currentAttempts = (await this.cacheManager.get<number>(key)) || 0
-            await this.cacheManager.set(key, currentAttempts + 1, AUTH_CONSTANTS.CACHE_TTL.RATE_LIMIT)
-        }
-    }
-
-    /**
-     * OTP 이메일 전송
-     *
-     * @description
-     * 사용자 이메일로 OTP를 전송합니다.
-     * 실제 환경에서는 이메일 서비스를 사용해야 합니다.
-     *
-     * @param email - 수신자 이메일
-     * @param otp - 6자리 OTP 코드
-     *
-     * @security
-     * OTP는 민감한 정보이므로 어떤 환경에서도 로그에 기록하지 않습니다.
-     * 개발/테스트 환경에서는 이메일 서비스의 테스트 모드나 별도의 모니터링 도구를 사용하세요.
-     */
-    private async sendOtpEmail(email: string, otp: string): Promise<void> {
-        // TODO: 이메일 서비스 (SendGrid, AWS SES 등)를 통해 OTP 전송 구현
-        // 개발 환경: 이메일 서비스의 테스트 모드 사용 (예: Mailtrap, Ethereal Email)
-        // 프로덕션: 실제 이메일 발송
-    }
-
-    /**
-     * Reset 토큰 생성
-     *
-     * @description
-     * OTP 검증 성공 후 비밀번호 재설정을 위한 일회용 토큰을 생성합니다.
-     * - 64자리 랜덤 hex 문자열로 생성
-     * - 15분간 유효
-     * - 사용자 ID와 Flow ID를 payload로 저장
-     *
-     * @param userId - 사용자 ID
-     * @param flowId - 재설정 플로우 ID
-     * @returns Promise<string> - 생성된 리셋 토큰
-     */
-    private async createResetToken(userId: number, flowId: string): Promise<string> {
-        const payload: ResetTokenPayload = {
-            id: userId,
-            flowId
-        }
-
-        // Reset 토큰 생성 (64자리 랜덤 hex 문자열)
-        const resetToken = this.otpUtil.generateResetToken()
-
-        // 활성 리셋 토큰 및 payload 저장 (15분 TTL)
-        const tokenKey = `${AUTH_CONSTANTS.CACHE_KEYS.ACTIVE_RESET_TOKEN_PREFIX}${resetToken}`
-        await this.cacheManager.set(tokenKey, JSON.stringify(payload), AUTH_CONSTANTS.CACHE_TTL.RESET_TOKEN)
-
-        return resetToken
-    }
-
-    /**
-     * Reset 토큰 검증
-     *
-     * @description
-     * 비밀번호 재설정 시 제공된 리셋 토큰의 유효성을 검증합니다.
-     * - Redis에서 토큰 조회
-     * - 만료 여부 자동 확인 (Redis TTL)
-     * - Payload 파싱 및 반환
-     *
-     * @param resetToken - 검증할 리셋 토큰
-     * @returns Promise<ResetTokenPayload> - 토큰에 포함된 사용자 ID 및 Flow ID
-     * @throws AUTH_ERROR.INVALID_RESET_TOKEN - 토큰이 유효하지 않거나 만료된 경우
-     */
-    private async verifyResetToken(resetToken: string): Promise<ResetTokenPayload> {
+    private validateCode(input: string, stored: string): boolean {
         try {
-            // 토큰 키로 payload 조회
-            const tokenKey = `${AUTH_CONSTANTS.CACHE_KEYS.ACTIVE_RESET_TOKEN_PREFIX}${resetToken}`
-            const storedPayload = await this.cacheManager.get<string>(tokenKey)
+            // 1. 입력된 코드와 저장된 코드를 Buffer로 변환 (바이트 단위 비교를 위함)
+            const inputBuffer = Buffer.from(input, 'utf8')
+            const storedBuffer = Buffer.from(stored, 'utf8')
 
-            if (!storedPayload) {
-                throw new BaseException(AUTH_ERROR.INVALID_RESET_TOKEN, this.constructor.name)
-            }
-
-            const payload: ResetTokenPayload = JSON.parse(storedPayload)
-
-            return payload
-        } catch (error) {
-            throw new BaseException(AUTH_ERROR.INVALID_RESET_TOKEN, this.constructor.name)
+            // 2. 버퍼 길이가 다르면 false 반환 (시간 공격 방지)
+            if (inputBuffer.length !== storedBuffer.length) return false
+            // 3. timingSafeEqual을 사용하여 두 버퍼를 시간 공격에 안전하게 비교
+            return timingSafeEqual(inputBuffer, storedBuffer)
+        } catch {
+            // 버퍼 변환 중 오류 발생 시 (예: 유효하지 않은 입력) false 반환
+            return false
         }
     }
 
     /**
-     * 보안 관련 캐시 정리
-     *
-     * @description
-     * 비밀번호 재설정 완료 후 보안과 관련된 모든 캐시 데이터를 정리합니다.
-     * - OTP 데이터
-     * - OTP 발급 Rate limit
-     * - OTP 검증 Rate limit
-     *
-     * @param userId - 사용자 ID
+     * @summary 인증 이메일 발송 (내부 도우미 함수)
+     * @description 사용자에게 비밀번호 재설정 인증 코드를 포함한 이메일을 발송합니다.
+     *              (현재는 TODO 상태이며, 실제 이메일 발송 로직 구현 필요)
+     * @param email 수신자 이메일 주소
+     * @param code 발송할 인증 코드
+     * @returns Promise<void>
      */
-    private async clearSecurityCache(userId: number): Promise<void> {
-        const keys = [
-            this.otpUtil.createOtpKey(userId), // OTP 데이터
-            `${AUTH_CONSTANTS.CACHE_KEYS.RATE_LIMIT_INIT_PREFIX}${userId}`, // OTP 발급 Rate limit
-            `${AUTH_CONSTANTS.CACHE_KEYS.RATE_LIMIT_VERIFY_PREFIX}${userId}` // OTP 검증 Rate limit
-        ]
-
-        await Promise.all(keys.map((key) => this.cacheManager.del(key)))
+    private async sendVerificationEmail(email: string, code: string): Promise<void> {
+        // TODO: 실제 이메일 서비스 구현 (예: Nodemailer, SendGrid 등 연동)
     }
-
 }

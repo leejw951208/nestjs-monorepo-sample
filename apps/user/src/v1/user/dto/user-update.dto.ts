@@ -1,5 +1,4 @@
-import { UserDto } from '@libs/models/user/user.dto'
-import { ApiProperty, PickType } from '@nestjs/swagger'
-import { IsOptional } from 'class-validator'
+import { PickType } from '@nestjs/swagger'
+import { UserDto } from './user.dto'
 
 export class UserUpdateDto extends PickType(UserDto, ['email', 'phone']) {}

@@ -1,9 +1,9 @@
-import { OffsetPaginationRequestDto } from '@libs/common/dto/pagination-request.dto'
+import { OffsetRequestDto } from '@libs/common/dto/pagination-request.dto'
 import { ApiProperty } from '@nestjs/swagger'
 import { NotificationType, Owner } from '@prisma/client'
 import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator'
 
-export class NotificationPaginationRequestDto extends OffsetPaginationRequestDto {
+export class NotificationPaginationRequestDto extends OffsetRequestDto {
     @ApiProperty({ required: false, description: '수신자 ID', example: 1 })
     @IsOptional()
     @IsInt()

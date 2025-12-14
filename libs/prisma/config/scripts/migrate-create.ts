@@ -24,7 +24,7 @@ async function main(): Promise<void> {
     // 4) 마이그레이션 파일 생성
     try {
         console.log(`📝 ${env} 환경에서 마이그레이션 파일을 생성합니다: ${migrationName}`)
-        const schemaPath = `${resolve(process.cwd())}${process.env.PRISMA_SCHEMA_PATH}`
+        const schemaPath = `${resolve(process.cwd())}/libs/prisma/config`
         execSync(`npx prisma migrate dev --name ${migrationName} --create-only --schema=${schemaPath}`, { stdio: 'inherit' })
         console.log('✅ 마이그레이션 파일이 생성되었습니다. 파일을 검토 및 수정한 후, 별도의 스크립트를 통해 적용하세요.')
     } catch (error) {

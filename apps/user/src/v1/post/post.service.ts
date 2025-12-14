@@ -1,127 +1,82 @@
-import { CursorPaginationResDto, OffsetPaginationResDto } from '@libs/common/dto/pagination-response.dto'
+import { CreateResponseDto } from '@libs/common/dto/create-response.dto'
+import { CursorResponseDto, OffsetResponseDto } from '@libs/common/dto/pagination-response.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { POST_ERROR } from '@libs/common/exception/error.code'
-import { type JwtPayload } from '@libs/common/type/jwt-payload.type'
 import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
 import { Inject, Injectable } from '@nestjs/common'
-import { PostStatus } from '@prisma/client'
 import { plainToInstance } from 'class-transformer'
 import { PostCreateDto } from './dto/post-create.dto'
-import { PostCursorPaginationReqDto } from './dto/post-cursor-pagination-request.dto'
-import { PostOffsetPaginationReqDto } from './dto/post-offset-pagination-request.dto'
+import { PostCursorRequestDto } from './dto/post-cursor-request.dto'
+import { PostOffsetRequestDto } from './dto/post-offset-request.dto'
 import { PostResponseDto } from './dto/post-response.dto'
 import { PostUpdateDto } from './dto/post-update.dto'
-import { PostQuery } from './post.query'
+import { PostRepository } from './post.repository'
 
 @Injectable()
 export class PostService {
     constructor(
         @Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient,
-        private readonly postQuery: PostQuery
+        private readonly repository: PostRepository
     ) {}
 
-    async savePost(userId: number, reqDto: PostCreateDto): Promise<PostResponseDto> {
-        const createdPost = await this.prisma.post.create({
-            data: {
-                title: reqDto.title,
-                content: reqDto.content,
-                userId,
-                status: reqDto.status || PostStatus.PUBLISHED,
-                createdBy: userId
-            }
+    async savePost(userId: number, reqDto: PostCreateDto): Promise<CreateResponseDto> {
+        const savedPost = await this.prisma.post.create({
+            data: { ...reqDto, userId, status: reqDto.status }
         })
-
-        return plainToInstance(PostResponseDto, createdPost, { excludeExtraneousValues: true })
+        return new CreateResponseDto(savedPost.id)
     }
 
-    async getPost(id: number): Promise<PostResponseDto> {
-        const post = await this.prisma.post.findFirst({
-            where: {
-                id,
-                isDeleted: false
-            }
+    async getPost(userId: number, postId: number): Promise<PostResponseDto> {
+        const foundPost = await this.prisma.post.findFirst({
+            where: { id: postId, userId, isDeleted: false }
         })
 
-        if (!post) {
+        if (!foundPost) {
             throw new BaseException(POST_ERROR.NOT_FOUND, this.constructor.name)
         }
 
-        // 조회수 증가 (soft delete 체크 포함)
-        const updatedPost = await this.prisma.post.update({
-            where: {
-                id,
-                isDeleted: false
-            },
-            data: { viewCount: { increment: 1 } },
-            select: { viewCount: true }
+        return plainToInstance(PostResponseDto, foundPost, { excludeExtraneousValues: true })
+    }
+
+    async updatePost(userId: number, postId: number, reqDto: PostUpdateDto): Promise<void> {
+        const foundPost = await this.prisma.post.findFirst({
+            where: { id: postId, userId, isDeleted: false }
         })
 
-        return plainToInstance(PostResponseDto, { ...post, viewCount: updatedPost.viewCount }, { excludeExtraneousValues: true })
-    }
-
-    async getPostsOffset(searchCondition: PostOffsetPaginationReqDto): Promise<OffsetPaginationResDto<PostResponseDto>> {
-        const { items, totalCount } = await this.postQuery.getPostsOffset(searchCondition)
-        return new OffsetPaginationResDto(plainToInstance(PostResponseDto, items, { excludeExtraneousValues: true }), {
-            page: searchCondition.page,
-            totalCount
-        })
-    }
-
-    async getPostsCursor(searchCondition: PostCursorPaginationReqDto): Promise<CursorPaginationResDto<PostResponseDto>> {
-        const { items, nextCursor } = await this.postQuery.getPostsCursor(searchCondition)
-        return new CursorPaginationResDto(plainToInstance(PostResponseDto, items, { excludeExtraneousValues: true }), nextCursor)
-    }
-
-    async getMyPostsOffset(userId: number, searchCondition: PostOffsetPaginationReqDto): Promise<OffsetPaginationResDto<PostResponseDto>> {
-        const { items, totalCount } = await this.postQuery.getPostsOffset(searchCondition, userId)
-        return new OffsetPaginationResDto(plainToInstance(PostResponseDto, items, { excludeExtraneousValues: true }), {
-            page: searchCondition.page,
-            totalCount
-        })
-    }
-
-    async getMyPostsCursor(userId: number, searchCondition: PostCursorPaginationReqDto): Promise<CursorPaginationResDto<PostResponseDto>> {
-        const { items, nextCursor } = await this.postQuery.getPostsCursor(searchCondition, userId)
-        return new CursorPaginationResDto(plainToInstance(PostResponseDto, items, { excludeExtraneousValues: true }), nextCursor)
-    }
-
-    async updateMyPost(userId: number, id: number, reqDto: PostUpdateDto): Promise<void> {
-        const post = await this.prisma.post.findFirst({
-            where: { id, userId, isDeleted: false }
-        })
-
-        if (!post) {
+        if (!foundPost) {
             throw new BaseException(POST_ERROR.NOT_FOUND, this.constructor.name)
-        }
-
-        if (post.userId !== userId) {
-            throw new BaseException(POST_ERROR.FORBIDDEN, this.constructor.name)
         }
 
         await this.prisma.post.update({
-            where: { id, userId, isDeleted: false },
-            data: {
-                ...reqDto,
-                updatedBy: userId
-            }
+            where: { id: foundPost.id },
+            data: reqDto
         })
     }
 
-    async deleteMyPost(userId: number, id: number): Promise<void> {
-        const post = await this.prisma.post.findFirst({
-            where: { id, userId, isDeleted: false }
+    async deletePost(userId: number, postId: number): Promise<void> {
+        const foundPost = await this.prisma.post.findFirst({
+            where: { id: postId, userId, isDeleted: false }
         })
 
-        if (!post) {
+        if (!foundPost) {
             throw new BaseException(POST_ERROR.NOT_FOUND, this.constructor.name)
         }
 
-        if (post.userId !== userId) {
-            throw new BaseException(POST_ERROR.FORBIDDEN, this.constructor.name)
-        }
+        await this.prisma.post.softDelete({ where: { id: foundPost.id } })
+    }
 
-        await this.prisma.post.softDelete({
-            where: { id, userId, isDeleted: false }
+    async getPostsOffset(searchCondition: PostOffsetRequestDto, userId?: number): Promise<OffsetResponseDto<PostResponseDto>> {
+        const { items, totalCount } = await this.repository.findPostsOffset(searchCondition, userId)
+        return new OffsetResponseDto<PostResponseDto>(plainToInstance(PostResponseDto, items, { excludeExtraneousValues: true }), {
+            page: searchCondition.page,
+            totalCount
+        })
+    }
+
+    async getPostsCursor(searchCondition: PostCursorRequestDto, userId?: number): Promise<CursorResponseDto<PostResponseDto>> {
+        const { items, nextCursor } = await this.repository.findPostsCursor(searchCondition, userId)
+        return new CursorResponseDto<PostResponseDto>(plainToInstance(PostResponseDto, items, { excludeExtraneousValues: true }), {
+            nextCursor
         })
     }
 }

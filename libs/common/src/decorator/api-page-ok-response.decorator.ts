@@ -1,17 +1,17 @@
 import { applyDecorators, Type } from '@nestjs/common'
 import { ApiExtraModels, ApiOkResponse, getSchemaPath } from '@nestjs/swagger'
-import { CursorPaginationResDto, OffsetPaginationResDto } from '../dto/pagination-response.dto'
+import { CursorResponseDto, OffsetResponseDto } from '../dto/pagination-response.dto'
 import { ResponseDto } from '../dto/response.dto'
 
 type Opts = { description?: string; dataKey?: string; mode?: 'offset' | 'cursor' }
 
 function ApiOkPaginationResponse<TModel extends Type<unknown>>(model: TModel, opts: Opts = {}) {
     const dataKey = opts.dataKey ?? 'data'
-    const Base = opts.mode === 'cursor' ? CursorPaginationResDto : OffsetPaginationResDto
+    const Base = opts.mode === 'cursor' ? CursorResponseDto : OffsetResponseDto
 
     return applyDecorators(
         // 상속(OffsetPaginationResDto extends ResponseDto<T[]>)을 반영해 ResponseDto도 등록
-        ApiExtraModels(ResponseDto, OffsetPaginationResDto, CursorPaginationResDto, model),
+        ApiExtraModels(ResponseDto, OffsetResponseDto, CursorResponseDto, model),
         ApiOkResponse({
             description: opts.description,
             schema: {

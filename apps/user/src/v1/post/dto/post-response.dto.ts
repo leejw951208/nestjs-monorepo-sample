@@ -15,10 +15,6 @@ export class PostResponseDto {
     @Expose()
     content: string
 
-    @ApiProperty({ required: true, description: '작성자 ID', example: 1 })
-    @Expose()
-    userId: number
-
     @ApiProperty({ required: true, description: '조회수', example: 0 })
     @Expose()
     viewCount: number

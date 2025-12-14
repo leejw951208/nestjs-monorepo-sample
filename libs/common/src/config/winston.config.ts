@@ -29,7 +29,7 @@ export const winstonModuleAsyncOptions: WinstonModuleAsyncOptions = {
     useFactory: (configService: ConfigService) => {
         const nodeEnv = configService.get<string>('NODE_ENV')
         const isProd = nodeEnv === 'prod'
-        const logDir = configService.get<string>('LOG_DIR') || `logs`
+        const logDir = 'logs'
         const logLevel = isProd ? 'info' : 'debug'
 
         const consoleOptions: ConsoleTransportOptions = {

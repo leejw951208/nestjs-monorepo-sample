@@ -34,15 +34,6 @@
                 "tsConfigPath": "libs/common/tsconfig.lib.json"
             }
         },
-        "models": {
-            "type": "library",
-            "root": "libs/models",
-            "entryFile": "index",
-            "sourceRoot": "libs/models/src",
-            "compilerOptions": {
-                "tsConfigPath": "libs/models/tsconfig.lib.json"
-            }
-        },
         "prisma": {
             "type": "library",
             "root": "libs/prisma",

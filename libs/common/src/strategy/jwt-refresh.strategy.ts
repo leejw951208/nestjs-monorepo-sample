@@ -4,11 +4,11 @@ import { ConfigService } from '@nestjs/config'
 import { PassportStrategy } from '@nestjs/passport'
 import { type Cache } from 'cache-manager'
 import { Request } from 'express'
+import { CryptoService } from '@libs/common/service/crypto.service'
 import { ExtractJwt, Strategy } from 'passport-jwt'
 import { BaseException } from '../exception/base.exception'
 import { AUTH_ERROR } from '../exception/error.code'
-import { BcryptUtil } from '../util/bcrypt.util'
-import { JwtPayload } from '../type/jwt-payload.type'
+import { JwtPayload } from '../service/token.service'
 
 /**
  * JWT 인증 전략 - passport-jwt를 사용한 JWT 토큰 기반 인증
@@ -33,7 +33,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
         @Inject(CACHE_MANAGER)
         private readonly cacheManager: Cache,
         private readonly configService: ConfigService,
-        private readonly bcryptUtil: BcryptUtil
+        private readonly cryptoService: CryptoService
     ) {
         super({
             // 먼저 헤더를 조회하고 없으면 쿠키를 조회한다.
@@ -60,7 +60,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
         if (!cachedToken) throw new BaseException(AUTH_ERROR.MISSING_REFRESH_TOKEN, this.constructor.name)
 
         // 리프레시 토큰 비교
-        const isMatched = await this.bcryptUtil.compare(foundToken, cachedToken)
+        const isMatched = await this.cryptoService.compare(foundToken, cachedToken)
         if (!isMatched) throw new BaseException(AUTH_ERROR.INVALID_REFRESH_TOKEN, this.constructor.name)
 
         return payload

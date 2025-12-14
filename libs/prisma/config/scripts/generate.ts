@@ -1,6 +1,6 @@
 import dotenv from 'dotenv'
 import { execSync } from 'node:child_process'
-import { resolve } from 'node:path'
+import path from 'node:path'
 import { stdin, stdout } from 'node:process'
 import { createInterface } from 'node:readline/promises'
 
@@ -16,20 +16,20 @@ async function main(): Promise<void> {
         console.log(`NODE_ENV에서 감지된 환경: ${env}`)
     }
 
-    // 2) .env 파일 로드
-    const envFilePath = resolve(process.cwd(), `./envs/.env.${env}`)
-    dotenv.config({ path: envFilePath })
-
-    // 3) 입력 검증
+    // 2) 입력 검증
     if (!env) {
-        console.error('❌ 환경을 입력해야 합니다.')
+        console.error('❌ 환겨을 입력해야 합니다.')
         process.exit(1)
     }
+
+    // 3) .env 파일 로드
+    const envFilePath = path.resolve(process.cwd(), `envs/.env.${env}`)
+    dotenv.config({ path: envFilePath })
 
     // 4) 마이그레이션 파일 생성
     try {
         console.log(`📝 ${env} 환경에서 Prisma 설정 업데이트를 진행합니다.`)
-        const schemaPath = `${resolve(process.cwd())}${process.env.PRISMA_SCHEMA_PATH}`
+        const schemaPath = path.resolve(process.cwd(), 'libs/prisma/config')
         execSync(`npx prisma generate --schema=${schemaPath}`, { stdio: 'inherit' })
         console.log('✅ Prisma 설정 업데이트가 완료되었습니다.')
     } catch (error) {

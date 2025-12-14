@@ -1,6 +1,0 @@
-export * from './models.module'
-export * from './post/post.model'
-export * from './user/user.model'
-export * from './token/token.model'
-export * from './permission/permission.model'
-export * from './base/base.model'

@@ -1,4 +1,4 @@
-import { ClsUtil } from '@libs/common/util/cls.util'
+import { ClsService } from 'nestjs-cls'
 import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston'
@@ -12,10 +12,10 @@ import { CommonModule } from '@libs/common/common.module'
     providers: [
         {
             provide: PRISMA_CLIENT,
-            inject: [ConfigService, ClsUtil, WINSTON_MODULE_NEST_PROVIDER],
-            useFactory: (config: ConfigService, cls: ClsUtil, logger: Logger) => {
+            inject: [ConfigService, ClsService, WINSTON_MODULE_NEST_PROVIDER],
+            useFactory: (config: ConfigService, cls: ClsService, logger: Logger) => {
                 // cls 타입 명시
-                return extendedPrismaClient(config, cls, logger)
+                return extendedPrismaClient(config, cls as ClsService, logger)
             }
         }
     ],

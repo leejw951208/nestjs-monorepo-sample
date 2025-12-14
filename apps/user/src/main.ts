@@ -1,6 +1,5 @@
 import { setupSwagger } from '@libs/common/config/swagger.config'
 import { GlobalExceptionHandler } from '@libs/common/exception/global-exception-handler'
-import { SuccessStatusInterceptor } from '@libs/common/interceptor/success-status-interceptor/success-status-interceptor.interceptor'
 import { ClassSerializerInterceptor, ValidationPipe, VersioningType } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { NestFactory, Reflector } from '@nestjs/core'
@@ -30,8 +29,6 @@ async function bootstrap() {
 
     app.use(cookieParser())
 
-    app.useGlobalInterceptors(new SuccessStatusInterceptor())
-
     // 스웨거 설정
     setupSwagger(app)
 
@@ -41,7 +38,7 @@ async function bootstrap() {
     await app.listen(port).then(() => {
         logger.log(
             `[User] App is running on port ${port} in ${nodeEnv} environment,
-                swagger: http://localhost:${port}/api/user/docs
+                swagger: http://localhost:${port}/api/users/docs
             `
         )
     })
