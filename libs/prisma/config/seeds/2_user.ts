@@ -1,6 +1,8 @@
 import { BaseException } from '@libs/common/exception/base.exception'
 import { SEED_ERROR } from '@libs/common/exception/error.code'
-import { Owner, PrismaClient } from '@prisma/client'
+import { Owner, PrismaClient } from '@libs/prisma/index'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { Pool } from 'pg'
 import dotenv from 'dotenv'
 import path from 'path'
 import bcrypt from 'bcrypt'
@@ -15,13 +17,9 @@ async function main() {
         process.exit(1)
     }
 
-    const prisma = new PrismaClient({
-        datasources: {
-            db: {
-                url: process.env.DATABASE_URL
-            }
-        }
-    })
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+    const adapter = new PrismaPg(pool)
+    const prisma = new PrismaClient({ adapter })
 
     const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS || 10)
 
@@ -37,7 +35,7 @@ async function main() {
         const userRole = await prisma.role.findFirst({ where: { owner: Owner.USER } })
         if (!userRole) {
             console.error('❌ Seeding 실패: USER 역할이 존재하지 않습니다.')
-            throw new BaseException(SEED_ERROR.GENERAL, this.constructor.name)
+            throw new BaseException(SEED_ERROR.GENERAL, 'UserSeed')
         }
 
         // 2) User 생성
@@ -63,6 +61,7 @@ async function main() {
         process.exitCode = 1
     } finally {
         await prisma.$disconnect()
+        await pool.end()
     }
 }
 

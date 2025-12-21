@@ -1,12 +1,12 @@
 import commonEnvConfig from '@libs/common/config/env/common-env.config'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { AUTH_ERROR } from '@libs/common/exception/error.code'
-import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
+import { Owner, TokenType } from '@libs/prisma/index'
+import { PrismaService } from '@libs/prisma/prisma.service'
 import { CACHE_MANAGER } from '@nestjs/cache-manager'
 import { Inject, Injectable } from '@nestjs/common'
 import { type ConfigType } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
-import { Owner, TokenType } from '@prisma/client'
 import { type Cache } from 'cache-manager'
 
 export type JwtPayload = {
@@ -22,7 +22,7 @@ export class TokenService {
     constructor(
         private readonly jwtService: JwtService,
         @Inject(commonEnvConfig.KEY) private readonly config: ConfigType<typeof commonEnvConfig>,
-        @Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient,
+        private readonly prisma: PrismaService,
         @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
     ) {}
 

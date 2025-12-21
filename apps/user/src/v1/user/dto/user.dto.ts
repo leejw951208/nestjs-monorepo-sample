@@ -1,5 +1,5 @@
+import { UserStatus } from '@libs/prisma/index'
 import { ApiProperty } from '@nestjs/swagger'
-import { UserStatus } from '@prisma/client'
 import { Expose } from 'class-transformer'
 import { IsEnum, IsNotEmpty, IsString } from 'class-validator'
 

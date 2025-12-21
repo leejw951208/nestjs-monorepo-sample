@@ -3,11 +3,11 @@ import { BaseException } from '@libs/common/exception/base.exception'
 import { AUTH_ERROR, USER_ERROR } from '@libs/common/exception/error.code'
 import { CryptoService } from '@libs/common/service/crypto.service'
 import { TokenService } from '@libs/common/service/token.service'
-import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
+import { Owner, UserStatus } from '@libs/prisma/index'
+import { PrismaService } from '@libs/prisma/prisma.service'
 import { CACHE_MANAGER } from '@nestjs/cache-manager'
 import { Inject, Injectable } from '@nestjs/common'
 import { type ConfigType } from '@nestjs/config'
-import { Owner, UserStatus } from '@prisma/client'
 import { type Cache } from 'cache-manager'
 import { plainToInstance } from 'class-transformer'
 import { randomBytes, randomInt, randomUUID, timingSafeEqual } from 'crypto'
@@ -47,7 +47,7 @@ export class AuthService {
     private readonly PASSWORD_RESET_TOKEN_TTL = 900000 // 15분
 
     constructor(
-        @Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient,
+        private readonly prisma: PrismaService,
         @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
         @Inject(commonEnvConfig.KEY) private readonly config: ConfigType<typeof commonEnvConfig>,
         private readonly cryptoService: CryptoService,
@@ -76,7 +76,8 @@ export class AuthService {
             data: {
                 ...reqDto,
                 password: hashedPassword,
-                status: UserStatus.ACTIVE
+                status: UserStatus.ACTIVE,
+                createdBy: 0
             }
         })
     }
@@ -328,7 +329,7 @@ export class AuthService {
         await this.cacheManager.del(tokenKey)
         await this.prisma.user.update({
             where: { id: user.id },
-            data: { password: hashedPassword }
+            data: { password: hashedPassword, updatedBy: user.id }
         })
 
         // 6. 해당 사용자의 모든 리프레시 토큰 삭제 (보안 강화)

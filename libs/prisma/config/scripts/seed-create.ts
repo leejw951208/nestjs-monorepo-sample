@@ -35,20 +35,23 @@ async function main(): Promise<void> {
 
     const template = `import dotenv from 'dotenv'
 import path from 'node:path'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '@libs/prisma'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { Pool } from 'pg'
 
 async function main() {
     const env = process.env.NODE_ENV || 'local'
     const envFilePath = path.resolve(process.cwd(), \`./envs/.env.\${env}\`)
     dotenv.config({ path: envFilePath })
 
-    const prisma = new PrismaClient({
-        datasources: {
-            db: {
-                url: process.env.DATABASE_URL
-            }
-        }
-    })
+    if (!process.env.DATABASE_URL) {
+        console.error('❌ DATABASE_URL 이 설정되지 않았습니다.')
+        process.exit(1)
+    }
+
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+    const adapter = new PrismaPg(pool)
+    const prisma = new PrismaClient({ adapter })
 
     try {
         console.log(\`🚀 Seeding (env=\${env}) 시작\`)
@@ -59,6 +62,7 @@ async function main() {
         process.exitCode = 1
     } finally {
         await prisma.$disconnect()
+        await pool.end()
     }
 }
 

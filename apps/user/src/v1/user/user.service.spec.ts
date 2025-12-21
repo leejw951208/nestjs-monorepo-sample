@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { UserService } from './user.service'
-import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
-import { UserStatus } from '@prisma/client'
+import { PrismaService, UserStatus } from '@libs/prisma/index'
 import { UserResponseDto } from './dto/user-response.dto'
 import { UserUpdateDto } from './dto/user-update.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
@@ -10,13 +9,11 @@ import { ClsService } from 'nestjs-cls'
 
 describe('UserService', () => {
     let service: UserService
-    let prisma: ExtendedPrismaClient
 
     const mockPrisma = {
         user: {
             findFirst: jest.fn(),
-            update: jest.fn(),
-            softDelete: jest.fn()
+            update: jest.fn()
         }
     }
 
@@ -26,11 +23,10 @@ describe('UserService', () => {
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [UserService, { provide: PRISMA_CLIENT, useValue: mockPrisma }, { provide: ClsService, useValue: mockClsService }]
+            providers: [UserService, { provide: PrismaService, useValue: mockPrisma }, { provide: ClsService, useValue: mockClsService }]
         }).compile()
 
         service = module.get<UserService>(UserService)
-        prisma = module.get<ExtendedPrismaClient>(PRISMA_CLIENT)
     })
 
     afterEach(() => {
@@ -57,7 +53,7 @@ describe('UserService', () => {
 
             const result = await service.getMe(userId)
 
-            expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { id: userId, isDeleted: false } })
+            expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({ where: { id: userId, isDeleted: false } })
             expect(result).toBeInstanceOf(UserResponseDto)
             expect(result.id).toBe(user.id)
         })
@@ -76,7 +72,8 @@ describe('UserService', () => {
         it('should update user info', async () => {
             const userId = 1
             const updateDto: UserUpdateDto = {
-                email: 'updated@example.com'
+                email: 'updated@example.com',
+                phone: '01012345678'
             }
             const user = {
                 id: userId,
@@ -88,19 +85,24 @@ describe('UserService', () => {
                 ...updateDto
             }
 
+            mockClsService.get.mockReturnValue(userId)
             mockPrisma.user.findFirst.mockResolvedValue(user)
             mockPrisma.user.update.mockResolvedValue(updatedUser)
 
             await service.updateMe(userId, updateDto)
 
-            expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { id: userId, isDeleted: false } })
-            expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: userId }, data: updateDto })
+            expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({ where: { id: userId, isDeleted: false } })
+            expect(mockPrisma.user.update).toHaveBeenCalledWith({
+                where: { id: userId },
+                data: { ...updateDto, updatedBy: userId }
+            })
         })
 
         it('should throw exception if user not found', async () => {
             const userId = 1
             const updateDto: UserUpdateDto = {
-                email: 'updated@example.com'
+                email: 'updated@example.com',
+                phone: '01012345678'
             }
 
             mockPrisma.user.findFirst.mockResolvedValue(null)
@@ -124,18 +126,23 @@ describe('UserService', () => {
                 updatedAt: new Date()
             }
 
+            mockClsService.get.mockReturnValue(userId)
             mockPrisma.user.findFirst.mockResolvedValue(user)
-            mockPrisma.user.update.mockResolvedValue({ ...user, status: UserStatus.WITHDRAWN })
-            mockPrisma.user.softDelete.mockResolvedValue(undefined)
+            mockPrisma.user.update.mockResolvedValue({ ...user, status: UserStatus.WITHDRAWN, isDeleted: true })
 
             await service.withdraw(userId)
 
-            expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { id: userId, isDeleted: false } })
-            expect(prisma.user.update).toHaveBeenCalledWith({
+            expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({ where: { id: userId, isDeleted: false } })
+            expect(mockPrisma.user.update).toHaveBeenCalledWith({
                 where: { id: userId },
-                data: { status: UserStatus.WITHDRAWN }
+                data: {
+                    status: UserStatus.WITHDRAWN,
+                    isDeleted: true,
+                    deletedAt: expect.any(Date),
+                    deletedBy: userId,
+                    updatedBy: userId
+                }
             })
-            expect(prisma.user.softDelete).toHaveBeenCalledWith({ where: { id: userId } })
         })
 
         it('should throw exception if user not found', async () => {

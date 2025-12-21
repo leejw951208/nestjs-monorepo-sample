@@ -1,6 +1,5 @@
-import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
-import { Inject, Injectable } from '@nestjs/common'
-import { NotificationType, Owner, Prisma } from '@prisma/client'
+import { NotificationType, Prisma, PrismaService } from '@libs/prisma'
+import { Injectable } from '@nestjs/common'
 
 interface NotificationsOffsetParams {
     pagination: {
@@ -17,7 +16,7 @@ interface NotificationsOffsetParams {
 
 @Injectable()
 export class NotificationRepository {
-    constructor(@Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient) {}
+    constructor(private readonly prisma: PrismaService) {}
 
     async createNotification(data: Prisma.NotificationCreateInput): Promise<void> {
         await this.prisma.notification.create({ data })

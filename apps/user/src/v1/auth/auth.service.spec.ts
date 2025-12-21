@@ -2,10 +2,9 @@ import commonEnvConfig from '@libs/common/config/env/common-env.config'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { CryptoService } from '@libs/common/service/crypto.service'
 import { TokenService } from '@libs/common/service/token.service'
-import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
+import { Owner, PrismaService, UserStatus } from '@libs/prisma'
 import { CACHE_MANAGER } from '@nestjs/cache-manager'
 import { Test, TestingModule } from '@nestjs/testing'
-import { Owner, UserStatus } from '@prisma/client'
 import { AuthService } from './auth.service'
 import { PasswordResetConfirmRequestDto } from './dto/password-reset-confirm.request.dto'
 import { PasswordResetInitRequestDto } from './dto/password-reset-init.request.dto'
@@ -27,7 +26,6 @@ const mockCommonEnv = {
 
 describe('AuthService', () => {
     let service: AuthService
-    let prisma: jest.Mocked<ExtendedPrismaClient>
 
     const mockPrisma = {
         user: {
@@ -62,7 +60,7 @@ describe('AuthService', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 AuthService,
-                { provide: PRISMA_CLIENT, useValue: mockPrisma },
+                { provide: PrismaService, useValue: mockPrisma },
                 { provide: CACHE_MANAGER, useValue: mockCacheManager },
                 { provide: commonEnvConfig.KEY, useValue: mockCommonEnv },
                 { provide: CryptoService, useValue: mockCryptoService },
@@ -71,7 +69,6 @@ describe('AuthService', () => {
         }).compile()
 
         service = module.get<AuthService>(AuthService)
-        prisma = module.get(PRISMA_CLIENT)
     })
 
     afterEach(() => {
@@ -107,7 +104,14 @@ describe('AuthService', () => {
                 where: { email: reqDto.email, isDeleted: false }
             })
             expect(mockCryptoService.hash).toHaveBeenCalledWith(reqDto.password)
-            expect(mockPrisma.user.create).toHaveBeenCalled()
+            expect(mockPrisma.user.create).toHaveBeenCalledWith({
+                data: {
+                    ...reqDto,
+                    password: hashedPassword,
+                    status: UserStatus.ACTIVE,
+                    createdBy: 0
+                }
+            })
         })
 
         it('should throw exception if email already exists', async () => {
@@ -361,7 +365,7 @@ describe('AuthService', () => {
             expect(mockCryptoService.hash).toHaveBeenCalledWith(reqDto.newPassword)
             expect(mockPrisma.user.update).toHaveBeenCalledWith({
                 where: { id: user.id },
-                data: { password: hashedPassword }
+                data: { password: hashedPassword, updatedBy: user.id }
             })
             expect(mockTokenService.deleteAllRefreshTokens).toHaveBeenCalledWith(user.id, Owner.USER)
         })

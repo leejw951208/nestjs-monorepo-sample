@@ -1,5 +1,5 @@
+import { PostStatus } from '@libs/prisma/index'
 import { ApiProperty } from '@nestjs/swagger'
-import { PostStatus } from '@prisma/client'
 import { Expose } from 'class-transformer'
 
 export class PostResponseDto {

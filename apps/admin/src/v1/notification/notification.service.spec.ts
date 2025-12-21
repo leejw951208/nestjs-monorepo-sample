@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { NotificationType } from '@prisma/client'
+import { NotificationType } from '@libs/prisma'
 import { CreateNotificationRequestDto } from './dto/notification-create-request.dto'
 import { NotificationPaginationRequestDto } from './dto/notification-pagination-request.dto'
 import { NotificationRepository } from './notification.repository'

@@ -1,0 +1,325 @@
+model Admin {
+  id       Int        @id @default(autoincrement())
+  loginId  String     @unique @map("login_id")
+  password String     @map("password")
+  email    String     @unique @map("email")
+  name     String     @map("name")
+  phone    String     @map("phone")
+  status   UserStatus @default(ACTIVE) @map("status")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  adminRoles AdminRole[]
+
+  @@map("admin")
+  @@schema("base")
+}
+
+model AdminRole {
+  id      Int   @id @default(autoincrement())
+  adminId Int   @map("admin_id")
+  admin   Admin @relation(fields: [adminId], references: [id])
+  roleId  Int   @map("role_id")
+  role    Role  @relation(fields: [roleId], references: [id])
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  @@unique([adminId, roleId])
+  @@map("admin_role")
+  @@schema("base")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  WITHDRAWN
+
+  @@schema("public")
+}
+
+enum Owner {
+  ADMIN
+  USER
+
+  @@schema("public")
+}
+
+enum Platform {
+  WEB
+  ANDROID
+  IOS
+
+  @@schema("public")
+}
+
+enum TokenType {
+  JWT
+  FCM
+
+  @@schema("public")
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+
+  @@schema("public")
+}
+
+enum NotificationType {
+  SYSTEM
+  POST
+  COMMENT
+  USER
+
+  @@schema("public")
+}
+
+model Notification {
+  id      Int              @id @default(autoincrement())
+  userId  Int?             @map("user_id")
+  user    User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title   String           @map("title") @db.VarChar(100)
+  content String           @map("content") @db.VarChar(500)
+  type    NotificationType @map("type")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  notificationReads NotificationRead[]
+
+  @@index([userId, createdAt])
+  @@map("notification")
+  @@schema("public")
+}
+
+model NotificationRead {
+  id             Int          @id @default(autoincrement())
+  userId         Int          @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationId Int          @map("notification_id")
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  @@map("notification_read")
+  @@schema("public")
+}
+
+model Post {
+  id        Int        @id @default(autoincrement())
+  title     String     @map("title") @db.VarChar(200)
+  content   String     @map("content") @db.Text
+  userId    Int        @map("user_id")
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  viewCount Int        @default(0) @map("view_count")
+  status    PostStatus @default(PUBLISHED) @map("status")
+
+  createdAt DateTime? @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  @@index([userId, status, isDeleted])
+  @@index([status, isDeleted, id])
+  @@map("post")
+  @@schema("base")
+}
+
+model Role {
+  id          Int     @id @default(autoincrement())
+  name        String  @map("name")
+  owner       Owner   @default(USER) @map("owner")
+  description String? @map("description")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  userRoles       UserRole[]
+  adminRoles      AdminRole[]
+  rolePermissions RolePermission[]
+
+  @@map("role")
+  @@schema("base")
+}
+
+model Permission {
+  id        Int       @id @default(autoincrement())
+  scope     String    @map("scope")
+  action    String    @map("action")
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  rolePermissions RolePermission[]
+
+  @@unique([scope, action])
+  @@map("permission")
+  @@schema("base")
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int        @map("role_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId Int        @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  createdBy    Int        @map("created_by")
+  updatedAt    DateTime?  @updatedAt @map("updated_at")
+  updatedBy    Int?       @map("updated_by")
+  isDeleted    Boolean?   @default(false) @map("is_deleted")
+  deletedAt    DateTime?  @map("deleted_at")
+  deletedBy    Int?       @map("deleted_by")
+
+  @@unique([roleId, permissionId])
+  @@map("role_permission")
+  @@schema("base")
+}
+
+model Token {
+  id        Int       @id @default(autoincrement())
+  tokenHash String    @map("token_hash")
+  tokenType TokenType @map("token_type")
+  owner     Owner     @default(USER) @map("owner")
+  ownerId   Int       @map("owner_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  tokenFcms TokenFcm[]
+  tokenJwts TokenJwt[]
+
+  @@map("token")
+  @@schema("base")
+}
+
+model TokenJwt {
+  id        Int       @id @default(autoincrement())
+  tokenId   Int       @map("token_id")
+  token     Token     @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  jti       String    @map("jti")
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  @@map("token_jwt")
+  @@schema("base")
+}
+
+model TokenFcm {
+  id        Int       @id @default(autoincrement())
+  tokenId   Int       @map("token_id")
+  token     Token     @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  platform  Platform  @map("platform")
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  @@map("token_fcm")
+  @@schema("base")
+}
+
+model User {
+  id       Int        @id @default(autoincrement())
+  email    String     @unique @map("email")
+  password String     @map("password")
+  name     String     @map("name")
+  phone    String     @map("phone")
+  status   UserStatus @default(ACTIVE) @map("status")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  userRoles         UserRole[]
+  posts             Post[]
+  notifications     Notification[]
+  notificationReads NotificationRead[]
+
+  @@map("user")
+  @@schema("base")
+}
+
+model UserRole {
+  id     Int  @id @default(autoincrement())
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId Int  @map("role_id")
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  createdBy Int?      @map("created_by")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+  updatedBy Int?      @map("updated_by")
+  isDeleted Boolean?  @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy Int?      @map("deleted_by")
+
+  @@unique([userId, roleId])
+  @@map("user_role")
+  @@schema("base")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../config/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["public", "base"]
+}

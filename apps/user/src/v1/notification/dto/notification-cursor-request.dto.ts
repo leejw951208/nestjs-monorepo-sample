@@ -1,8 +1,8 @@
 import { CursorRequestDto } from '@libs/common/dto/pagination-request.dto'
+import { NotificationType } from '@libs/prisma/index'
 import { ApiProperty } from '@nestjs/swagger'
-import { NotificationType } from '@prisma/client'
-import { IsBoolean, IsEnum, IsOptional } from 'class-validator'
 import { Transform } from 'class-transformer'
+import { IsBoolean, IsEnum, IsOptional } from 'class-validator'
 
 export class NotificationCursorRequestDto extends CursorRequestDto {
     @ApiProperty({ type: Boolean, required: false, description: '읽음 여부 필터', example: false })

@@ -1,4 +1,6 @@
-import { Owner, PrismaClient } from '@prisma/client'
+import { Owner, PrismaClient } from '@libs/prisma/index'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { Pool } from 'pg'
 import dotenv from 'dotenv'
 import path from 'path'
 
@@ -12,13 +14,9 @@ async function main() {
         process.exit(1)
     }
 
-    const prisma = new PrismaClient({
-        datasources: {
-            db: {
-                url: process.env.DATABASE_URL
-            }
-        }
-    })
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+    const adapter = new PrismaPg(pool)
+    const prisma = new PrismaClient({ adapter })
 
     try {
         console.log(`🚀 Seeding (env=${env}) 시작`)
@@ -71,6 +69,7 @@ async function main() {
         process.exitCode = 1
     } finally {
         await prisma.$disconnect()
+        await pool.end()
     }
 }
 

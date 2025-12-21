@@ -1,6 +1,6 @@
 import { BaseException } from '@libs/common/exception/base.exception'
 import { AUTH_ERROR } from '@libs/common/exception/error.code'
-import type { ExtendedPrismaClient } from '@libs/prisma/prisma.factory'
+import { PrismaService } from '@libs/prisma'
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { ClsService } from 'nestjs-cls'
@@ -10,7 +10,7 @@ export class PermissionGuard implements CanActivate {
     constructor(
         private readonly reflector: Reflector,
         private readonly cls: ClsService,
-        private readonly prisma: ExtendedPrismaClient
+        private readonly prisma: PrismaService
     ) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {

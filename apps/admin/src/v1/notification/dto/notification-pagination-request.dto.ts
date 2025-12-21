@@ -1,6 +1,6 @@
 import { OffsetRequestDto } from '@libs/common/dto/pagination-request.dto'
+import { NotificationType } from '@libs/prisma'
 import { ApiProperty } from '@nestjs/swagger'
-import { NotificationType, Owner } from '@prisma/client'
 import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator'
 
 export class NotificationPaginationRequestDto extends OffsetRequestDto {

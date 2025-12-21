@@ -1,5 +1,5 @@
+import { NotificationType } from '@libs/prisma'
 import { ApiProperty } from '@nestjs/swagger'
-import { NotificationType } from '@prisma/client'
 import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
 
 export class CreateNotificationRequestDto {

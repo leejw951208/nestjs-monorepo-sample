@@ -1,5 +1,5 @@
+import { NotificationType } from '@libs/prisma/index'
 import { ApiProperty } from '@nestjs/swagger'
-import { NotificationType } from '@prisma/client'
 import { Expose } from 'class-transformer'
 
 export class NotificationResponseDto {

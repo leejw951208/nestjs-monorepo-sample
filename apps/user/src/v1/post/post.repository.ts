@@ -1,6 +1,5 @@
-import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
-import { Inject, Injectable } from '@nestjs/common'
-import { Post, Prisma } from '@prisma/client'
+import { Post, Prisma, PrismaService } from '@libs/prisma/index'
+import { Injectable } from '@nestjs/common'
 import { PostCursorRequestDto } from './dto/post-cursor-request.dto'
 import { PostOffsetRequestDto } from './dto/post-offset-request.dto'
 
@@ -16,7 +15,7 @@ export type PostCursorResponse = {
 
 @Injectable()
 export class PostRepository {
-    constructor(@Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient) {}
+    constructor(private readonly prisma: PrismaService) {}
 
     async findPostsOffset(searchCondition: PostOffsetRequestDto, userId?: number): Promise<PostOffsetResponse> {
         const where: Prisma.PostWhereInput = {

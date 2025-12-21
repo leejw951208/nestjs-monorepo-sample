@@ -1,7 +1,6 @@
-import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
-import { Inject, Injectable } from '@nestjs/common'
-import { Notification, Prisma } from '@prisma/client'
+import { Injectable } from '@nestjs/common'
 import { NotificationCursorRequestDto } from './dto/notification-cursor-request.dto'
+import { Notification, Prisma, PrismaService } from '@libs/prisma/index'
 
 export type NotificationCursorResponse = {
     items: Notification[]
@@ -10,7 +9,7 @@ export type NotificationCursorResponse = {
 
 @Injectable()
 export class NotificationRepository {
-    constructor(@Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient) {}
+    constructor(private readonly prisma: PrismaService) {}
 
     async findNotificationsCursor(searchCondition: NotificationCursorRequestDto, userId: number): Promise<NotificationCursorResponse> {
         const { lastCursor, size, order = 'desc', isRead, type } = searchCondition

@@ -2,9 +2,10 @@ import { CreateResponseDto } from '@libs/common/dto/create-response.dto'
 import { CursorResponseDto, OffsetResponseDto } from '@libs/common/dto/pagination-response.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { POST_ERROR } from '@libs/common/exception/error.code'
-import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
-import { Inject, Injectable } from '@nestjs/common'
+import { PrismaService } from '@libs/prisma/index'
+import { Injectable } from '@nestjs/common'
 import { plainToInstance } from 'class-transformer'
+import { ClsService } from 'nestjs-cls'
 import { PostCreateDto } from './dto/post-create.dto'
 import { PostCursorRequestDto } from './dto/post-cursor-request.dto'
 import { PostOffsetRequestDto } from './dto/post-offset-request.dto'
@@ -15,13 +16,14 @@ import { PostRepository } from './post.repository'
 @Injectable()
 export class PostService {
     constructor(
-        @Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient,
-        private readonly repository: PostRepository
+        private readonly prisma: PrismaService,
+        private readonly repository: PostRepository,
+        private readonly cls: ClsService
     ) {}
 
     async savePost(userId: number, reqDto: PostCreateDto): Promise<CreateResponseDto> {
         const savedPost = await this.prisma.post.create({
-            data: { ...reqDto, userId, status: reqDto.status }
+            data: { ...reqDto, userId, status: reqDto.status, createdBy: this.cls.get('id') }
         })
         return new CreateResponseDto(savedPost.id)
     }
@@ -49,7 +51,7 @@ export class PostService {
 
         await this.prisma.post.update({
             where: { id: foundPost.id },
-            data: reqDto
+            data: { ...reqDto, updatedBy: this.cls.get('id') }
         })
     }
 
@@ -62,7 +64,16 @@ export class PostService {
             throw new BaseException(POST_ERROR.NOT_FOUND, this.constructor.name)
         }
 
-        await this.prisma.post.softDelete({ where: { id: foundPost.id } })
+        const currentUserId = this.cls.get('id')
+        await this.prisma.post.update({
+            where: { id: foundPost.id },
+            data: {
+                isDeleted: true,
+                deletedAt: new Date(),
+                deletedBy: currentUserId,
+                updatedBy: currentUserId
+            }
+        })
     }
 
     async getPostsOffset(searchCondition: PostOffsetRequestDto, userId?: number): Promise<OffsetResponseDto<PostResponseDto>> {

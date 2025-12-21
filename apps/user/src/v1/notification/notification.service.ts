@@ -1,9 +1,10 @@
 import { CursorResponseDto } from '@libs/common/dto/pagination-response.dto'
 import { BaseException } from '@libs/common/exception/base.exception'
 import { NOTIFICATION_ERROR } from '@libs/common/exception/error.code'
-import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
-import { Inject, Injectable } from '@nestjs/common'
+import { PrismaService } from '@libs/prisma/prisma.service'
+import { Injectable } from '@nestjs/common'
 import { plainToInstance } from 'class-transformer'
+import { ClsService } from 'nestjs-cls'
 import { NotificationCursorRequestDto } from './dto/notification-cursor-request.dto'
 import { NotificationResponseDto } from './dto/notification-response.dto'
 import { NotificationRepository } from './notification.repository'
@@ -11,8 +12,9 @@ import { NotificationRepository } from './notification.repository'
 @Injectable()
 export class NotificationService {
     constructor(
-        @Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient,
-        private readonly repository: NotificationRepository
+        private readonly prisma: PrismaService,
+        private readonly repository: NotificationRepository,
+        private readonly cls: ClsService
     ) {}
 
     async getMyNotifications(
@@ -85,7 +87,9 @@ export class NotificationService {
 
         if (notificationRead) return
 
-        await this.prisma.notificationRead.create({ data: { userId, notificationId } })
+        await this.prisma.notificationRead.create({
+            data: { userId, notificationId, createdBy: this.cls.get('id') }
+        })
     }
 
     async readAllNotifications(userId: number): Promise<void> {
@@ -100,10 +104,12 @@ export class NotificationService {
 
         if (unreadNotifications.length === 0) return
 
+        const currentUserId = this.cls.get('id')
         await this.prisma.notificationRead.createMany({
             data: unreadNotifications.map((notification) => ({
                 userId,
-                notificationId: notification.id
+                notificationId: notification.id,
+                createdBy: currentUserId
             }))
         })
     }
@@ -121,6 +127,15 @@ export class NotificationService {
             throw new BaseException(NOTIFICATION_ERROR.NOT_FOUND, this.constructor.name)
         }
 
-        await this.prisma.notification.softDelete({ where: { id: notificationId } })
+        const currentUserId = this.cls.get('id')
+        await this.prisma.notification.update({
+            where: { id: notificationId },
+            data: {
+                isDeleted: true,
+                deletedAt: new Date(),
+                deletedBy: currentUserId,
+                updatedBy: currentUserId
+            }
+        })
     }
 }

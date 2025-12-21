@@ -1,6 +1,6 @@
 import { OffsetRequestDto } from '@libs/common/dto/pagination-request.dto'
+import { PostStatus } from '@libs/prisma/index'
 import { ApiProperty } from '@nestjs/swagger'
-import { PostStatus } from '@prisma/client'
 import { IsEnum, IsOptional, IsString } from 'class-validator'
 
 export class PostOffsetRequestDto extends OffsetRequestDto {

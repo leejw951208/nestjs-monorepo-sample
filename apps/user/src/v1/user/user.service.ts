@@ -1,15 +1,18 @@
 import { BaseException } from '@libs/common/exception/base.exception'
 import { USER_ERROR } from '@libs/common/exception/error.code'
-import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
-import { Inject, Injectable } from '@nestjs/common'
-import { UserStatus } from '@prisma/client'
+import { PrismaService, UserStatus } from '@libs/prisma/index'
+import { Injectable } from '@nestjs/common'
 import { plainToInstance } from 'class-transformer'
+import { ClsService } from 'nestjs-cls'
 import { UserResponseDto } from './dto/user-response.dto'
 import { UserUpdateDto } from './dto/user-update.dto'
 
 @Injectable()
 export class UserService {
-    constructor(@Inject(PRISMA_CLIENT) private readonly prisma: ExtendedPrismaClient) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly cls: ClsService
+    ) {}
 
     async getMe(userId: number): Promise<UserResponseDto> {
         const foundUser = await this.prisma.user.findFirst({
@@ -34,7 +37,7 @@ export class UserService {
 
         await this.prisma.user.update({
             where: { id: userId },
-            data: reqDto
+            data: { ...reqDto, updatedBy: this.cls.get('id') }
         })
     }
 
@@ -51,11 +54,16 @@ export class UserService {
             throw new BaseException(USER_ERROR.ALREADY_DELETED, this.constructor.name)
         }
 
+        const currentUserId = this.cls.get('id')
         await this.prisma.user.update({
             where: { id: userId },
-            data: { status: UserStatus.WITHDRAWN }
+            data: {
+                status: UserStatus.WITHDRAWN,
+                isDeleted: true,
+                deletedAt: new Date(),
+                deletedBy: currentUserId,
+                updatedBy: currentUserId
+            }
         })
-
-        await this.prisma.user.softDelete({ where: { id: userId } })
     }
 }

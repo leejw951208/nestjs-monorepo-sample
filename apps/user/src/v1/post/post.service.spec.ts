@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { PostService } from './post.service'
-import { type ExtendedPrismaClient, PRISMA_CLIENT } from '@libs/prisma/prisma.factory'
-import { PostStatus } from '@prisma/client'
+import { PrismaService, PostStatus } from '@libs/prisma'
+import { ClsService } from 'nestjs-cls'
 import { PostCreateDto } from './dto/post-create.dto'
 import { PostResponseDto } from './dto/post-response.dto'
 import { CursorResponseDto, OffsetResponseDto } from '@libs/common/dto/pagination-response.dto'
@@ -15,15 +15,12 @@ import { CreateResponseDto } from '@libs/common/dto/create-response.dto'
 
 describe('PostService', () => {
     let service: PostService
-    let prisma: ExtendedPrismaClient
-    let repository: PostRepository
 
     const mockPrisma = {
         post: {
             create: jest.fn(),
             findFirst: jest.fn(),
-            update: jest.fn(),
-            softDelete: jest.fn()
+            update: jest.fn()
         }
     }
 
@@ -32,14 +29,21 @@ describe('PostService', () => {
         findPostsCursor: jest.fn()
     }
 
+    const mockClsService = {
+        get: jest.fn()
+    }
+
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [PostService, { provide: PRISMA_CLIENT, useValue: mockPrisma }, { provide: PostRepository, useValue: mockRepository }]
+            providers: [
+                PostService,
+                { provide: PrismaService, useValue: mockPrisma },
+                { provide: PostRepository, useValue: mockRepository },
+                { provide: ClsService, useValue: mockClsService }
+            ]
         }).compile()
 
         service = module.get<PostService>(PostService)
-        prisma = module.get<ExtendedPrismaClient>(PRISMA_CLIENT)
-        repository = module.get<PostRepository>(PostRepository)
     })
 
     afterEach(() => {
@@ -67,12 +71,13 @@ describe('PostService', () => {
                 updatedAt: new Date()
             }
 
+            mockClsService.get.mockReturnValue(userId)
             mockPrisma.post.create.mockResolvedValue(createdPost)
 
             const result = await service.savePost(userId, reqDto)
 
-            expect(prisma.post.create).toHaveBeenCalledWith({
-                data: { ...reqDto, userId, status: reqDto.status }
+            expect(mockPrisma.post.create).toHaveBeenCalledWith({
+                data: { ...reqDto, userId, status: reqDto.status, createdBy: userId }
             })
             expect(result).toBeInstanceOf(CreateResponseDto)
             expect(result.data).toBe(createdPost.id)
@@ -99,7 +104,7 @@ describe('PostService', () => {
 
             const result = await service.getPost(userId, postId)
 
-            expect(prisma.post.findFirst).toHaveBeenCalledWith({
+            expect(mockPrisma.post.findFirst).toHaveBeenCalledWith({
                 where: { id: postId, userId, isDeleted: false }
             })
             expect(result).toBeInstanceOf(PostResponseDto)
@@ -128,15 +133,16 @@ describe('PostService', () => {
                 userId
             }
 
+            mockClsService.get.mockReturnValue(userId)
             mockPrisma.post.findFirst.mockResolvedValue(post)
             mockPrisma.post.update.mockResolvedValue({ ...post, ...reqDto })
 
             await service.updatePost(userId, postId, reqDto)
 
-            expect(prisma.post.findFirst).toHaveBeenCalledWith({ where: { id: postId, userId, isDeleted: false } })
-            expect(prisma.post.update).toHaveBeenCalledWith({
+            expect(mockPrisma.post.findFirst).toHaveBeenCalledWith({ where: { id: postId, userId, isDeleted: false } })
+            expect(mockPrisma.post.update).toHaveBeenCalledWith({
                 where: { id: post.id },
-                data: reqDto
+                data: { ...reqDto, updatedBy: userId }
             })
         })
 
@@ -161,13 +167,22 @@ describe('PostService', () => {
                 userId
             }
 
+            mockClsService.get.mockReturnValue(userId)
             mockPrisma.post.findFirst.mockResolvedValue(post)
-            mockPrisma.post.softDelete.mockResolvedValue(post)
+            mockPrisma.post.update.mockResolvedValue(post)
 
             await service.deletePost(userId, postId)
 
-            expect(prisma.post.findFirst).toHaveBeenCalledWith({ where: { id: postId, userId, isDeleted: false } })
-            expect(prisma.post.softDelete).toHaveBeenCalledWith({ where: { id: post.id } })
+            expect(mockPrisma.post.findFirst).toHaveBeenCalledWith({ where: { id: postId, userId, isDeleted: false } })
+            expect(mockPrisma.post.update).toHaveBeenCalledWith({
+                where: { id: post.id },
+                data: {
+                    isDeleted: true,
+                    deletedAt: expect.any(Date),
+                    deletedBy: userId,
+                    updatedBy: userId
+                }
+            })
         })
 
         it('should throw exception if post not found', async () => {
@@ -208,7 +223,7 @@ describe('PostService', () => {
 
             const result = await service.getPostsOffset(query)
 
-            expect(repository.findPostsOffset).toHaveBeenCalledWith(query, undefined)
+            expect(mockRepository.findPostsOffset).toHaveBeenCalledWith(query, undefined)
             expect(result).toBeInstanceOf(OffsetResponseDto)
             expect(result.data[0]).toBeInstanceOf(PostResponseDto)
             expect(result.meta.totalCount).toBe(totalCount)
@@ -241,7 +256,7 @@ describe('PostService', () => {
 
             const result = await service.getPostsOffset(query, userId)
 
-            expect(repository.findPostsOffset).toHaveBeenCalledWith(query, userId)
+            expect(mockRepository.findPostsOffset).toHaveBeenCalledWith(query, userId)
             expect(result).toBeInstanceOf(OffsetResponseDto)
             expect(result.data[0]).toBeInstanceOf(PostResponseDto)
             expect(result.meta.totalCount).toBe(totalCount)
@@ -275,7 +290,7 @@ describe('PostService', () => {
 
             const result = await service.getPostsCursor(query)
 
-            expect(repository.findPostsCursor).toHaveBeenCalledWith(query, undefined)
+            expect(mockRepository.findPostsCursor).toHaveBeenCalledWith(query, undefined)
             expect(result).toBeInstanceOf(CursorResponseDto)
             expect(result.data[0]).toBeInstanceOf(PostResponseDto)
             expect(result.meta.nextCursor).toBe(nextCursor)
@@ -308,7 +323,7 @@ describe('PostService', () => {
 
             const result = await service.getPostsCursor(query, userId)
 
-            expect(repository.findPostsCursor).toHaveBeenCalledWith(query, userId)
+            expect(mockRepository.findPostsCursor).toHaveBeenCalledWith(query, userId)
             expect(result).toBeInstanceOf(CursorResponseDto)
             expect(result.data[0]).toBeInstanceOf(PostResponseDto)
             expect(result.meta.nextCursor).toBe(nextCursor)
