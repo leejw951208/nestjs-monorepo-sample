@@ -1,4 +1,4 @@
-import { NotificationType } from '@libs/prisma/index'
+import { NotificationType } from '@libs/prisma'
 import { ApiProperty } from '@nestjs/swagger'
 import { Expose } from 'class-transformer'
 

@@ -1,4 +1,4 @@
-import { PrismaModule } from '@libs/prisma/prisma.module'
+import { PrismaModule } from '@libs/prisma'
 import { Module } from '@nestjs/common'
 import { NotificationController } from './notification.controller'
 import { NotificationRepository } from './notification.repository'

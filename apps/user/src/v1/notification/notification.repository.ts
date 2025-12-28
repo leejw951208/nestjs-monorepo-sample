@@ -1,6 +1,7 @@
+import { Notification, NotificationRead, Prisma, PrismaService } from '@libs/prisma'
 import { Injectable } from '@nestjs/common'
+import { ClsService } from 'nestjs-cls'
 import { NotificationCursorRequestDto } from './dto/notification-cursor-request.dto'
-import { Notification, Prisma, PrismaService } from '@libs/prisma/index'
 
 export type NotificationCursorResponse = {
     items: Notification[]
@@ -9,7 +10,71 @@ export type NotificationCursorResponse = {
 
 @Injectable()
 export class NotificationRepository {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly cls: ClsService
+    ) {}
+
+    async findByIdForUser(id: number, userId: number): Promise<Notification | null> {
+        return this.prisma.notification.findFirst({
+            where: {
+                id,
+                isDeleted: false,
+                OR: [{ userId }, { userId: null }]
+            }
+        })
+    }
+
+    async findReadsByNotificationIds(userId: number, notificationIds: number[]): Promise<NotificationRead[]> {
+        return this.prisma.notificationRead.findMany({
+            where: { userId, notificationId: { in: notificationIds } }
+        })
+    }
+
+    async findReadByNotificationId(userId: number, notificationId: number): Promise<NotificationRead | null> {
+        return this.prisma.notificationRead.findFirst({
+            where: { userId, notificationId }
+        })
+    }
+
+    async createRead(userId: number, notificationId: number): Promise<NotificationRead> {
+        return this.prisma.notificationRead.create({
+            data: { userId, notificationId, createdBy: this.cls.get('id') }
+        })
+    }
+
+    async findUnreadNotificationIds(userId: number): Promise<number[]> {
+        const notifications = await this.prisma.notification.findMany({
+            where: {
+                isDeleted: false,
+                OR: [{ userId }, { userId: null }],
+                notificationReads: { none: { userId } }
+            },
+            select: { id: true }
+        })
+        return notifications.map((n) => n.id)
+    }
+
+    async createManyReads(userId: number, notificationIds: number[]): Promise<void> {
+        await this.prisma.notificationRead.createMany({
+            data: notificationIds.map((notificationId) => ({
+                userId,
+                notificationId,
+                createdBy: this.cls.get('id')
+            }))
+        })
+    }
+
+    async softDelete(id: number): Promise<Notification> {
+        return this.prisma.notification.update({
+            where: { id },
+            data: {
+                isDeleted: true,
+                deletedAt: new Date(),
+                deletedBy: this.cls.get('id')
+            }
+        })
+    }
 
     async findNotificationsCursor(searchCondition: NotificationCursorRequestDto, userId: number): Promise<NotificationCursorResponse> {
         const { lastCursor, size, order = 'desc', isRead, type } = searchCondition

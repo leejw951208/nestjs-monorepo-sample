@@ -1,11 +1,7 @@
-import { CreateResponseDto } from '@libs/common/dto/create-response.dto'
-import { CursorResponseDto, OffsetResponseDto } from '@libs/common/dto/pagination-response.dto'
-import { BaseException } from '@libs/common/exception/base.exception'
-import { POST_ERROR } from '@libs/common/exception/error.code'
-import { PrismaService } from '@libs/prisma/index'
+import { BaseException, CreateResponseDto, CursorResponseDto, OffsetResponseDto, POST_ERROR } from '@libs/common'
+import { PostStatus } from '@libs/prisma'
 import { Injectable } from '@nestjs/common'
 import { plainToInstance } from 'class-transformer'
-import { ClsService } from 'nestjs-cls'
 import { PostCreateDto } from './dto/post-create.dto'
 import { PostCursorRequestDto } from './dto/post-cursor-request.dto'
 import { PostOffsetRequestDto } from './dto/post-offset-request.dto'
@@ -15,23 +11,20 @@ import { PostRepository } from './post.repository'
 
 @Injectable()
 export class PostService {
-    constructor(
-        private readonly prisma: PrismaService,
-        private readonly repository: PostRepository,
-        private readonly cls: ClsService
-    ) {}
+    constructor(private readonly repository: PostRepository) {}
 
     async savePost(userId: number, reqDto: PostCreateDto): Promise<CreateResponseDto> {
-        const savedPost = await this.prisma.post.create({
-            data: { ...reqDto, userId, status: reqDto.status, createdBy: this.cls.get('id') }
+        const savedPost = await this.repository.create({
+            userId,
+            title: reqDto.title,
+            content: reqDto.content,
+            status: reqDto.status ?? PostStatus.PUBLISHED
         })
         return new CreateResponseDto(savedPost.id)
     }
 
     async getPost(userId: number, postId: number): Promise<PostResponseDto> {
-        const foundPost = await this.prisma.post.findFirst({
-            where: { id: postId, userId, isDeleted: false }
-        })
+        const foundPost = await this.repository.findByIdAndUserId(postId, userId)
 
         if (!foundPost) {
             throw new BaseException(POST_ERROR.NOT_FOUND, this.constructor.name)
@@ -41,39 +34,23 @@ export class PostService {
     }
 
     async updatePost(userId: number, postId: number, reqDto: PostUpdateDto): Promise<void> {
-        const foundPost = await this.prisma.post.findFirst({
-            where: { id: postId, userId, isDeleted: false }
-        })
+        const foundPost = await this.repository.findByIdAndUserId(postId, userId)
 
         if (!foundPost) {
             throw new BaseException(POST_ERROR.NOT_FOUND, this.constructor.name)
         }
 
-        await this.prisma.post.update({
-            where: { id: foundPost.id },
-            data: { ...reqDto, updatedBy: this.cls.get('id') }
-        })
+        await this.repository.update(foundPost.id, reqDto)
     }
 
     async deletePost(userId: number, postId: number): Promise<void> {
-        const foundPost = await this.prisma.post.findFirst({
-            where: { id: postId, userId, isDeleted: false }
-        })
+        const foundPost = await this.repository.findByIdAndUserId(postId, userId)
 
         if (!foundPost) {
             throw new BaseException(POST_ERROR.NOT_FOUND, this.constructor.name)
         }
 
-        const currentUserId = this.cls.get('id')
-        await this.prisma.post.update({
-            where: { id: foundPost.id },
-            data: {
-                isDeleted: true,
-                deletedAt: new Date(),
-                deletedBy: currentUserId,
-                updatedBy: currentUserId
-            }
-        })
+        await this.repository.softDelete(foundPost.id)
     }
 
     async getPostsOffset(searchCondition: PostOffsetRequestDto, userId?: number): Promise<OffsetResponseDto<PostResponseDto>> {

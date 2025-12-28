@@ -1,4 +1,4 @@
-import { OffsetRequestDto } from '@libs/common/dto/pagination-request.dto'
+import { OffsetRequestDto } from '@libs/common'
 import { NotificationType } from '@libs/prisma'
 import { ApiProperty } from '@nestjs/swagger'
 import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator'

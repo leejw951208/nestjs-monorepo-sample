@@ -7,20 +7,18 @@ import { NotificationService } from './notification.service'
 
 describe('NotificationService', () => {
     let service: NotificationService
-    let notificationQuery: NotificationRepository
 
-    const mockNotificationQuery = {
-        createNotification: jest.fn(),
-        getNotifications: jest.fn()
+    const mockRepository = {
+        create: jest.fn(),
+        findNotificationsOffset: jest.fn()
     }
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [NotificationService, { provide: NotificationRepository, useValue: mockNotificationQuery }]
+            providers: [NotificationService, { provide: NotificationRepository, useValue: mockRepository }]
         }).compile()
 
         service = module.get<NotificationService>(NotificationService)
-        notificationQuery = module.get<NotificationRepository>(NotificationRepository)
     })
 
     afterEach(() => {
@@ -33,22 +31,21 @@ describe('NotificationService', () => {
 
     describe('createNotification', () => {
         it('should create notification successfully', async () => {
-            const adminId = 1
             const dto: CreateNotificationRequestDto = {
                 title: 'Test',
                 content: 'Test Content',
                 type: NotificationType.SYSTEM
             }
 
-            mockNotificationQuery.createNotification.mockResolvedValue({})
+            mockRepository.create.mockResolvedValue({})
 
-            await service.createNotification(adminId, dto)
+            await service.createNotification(dto)
 
-            expect(mockNotificationQuery.createNotification).toHaveBeenCalledWith({
+            expect(mockRepository.create).toHaveBeenCalledWith({
+                userId: undefined,
                 title: dto.title,
                 content: dto.content,
-                type: dto.type,
-                createdBy: adminId
+                type: dto.type
             })
         })
     })
@@ -77,13 +74,13 @@ describe('NotificationService', () => {
                 ]
             }
 
-            mockNotificationQuery.getNotifications.mockResolvedValue(mockData)
+            mockRepository.findNotificationsOffset.mockResolvedValue(mockData)
 
             const result = await service.getNotifications(dto)
 
             expect(result.data).toHaveLength(1)
             expect(result.meta.totalCount).toBe(1)
-            expect(mockNotificationQuery.getNotifications).toHaveBeenCalledWith({
+            expect(mockRepository.findNotificationsOffset).toHaveBeenCalledWith({
                 pagination: { page: dto.page, size: dto.size, order: dto.order },
                 searchCondition: { userId: dto.userId, type: dto.type, keyword: dto.keyword }
             })

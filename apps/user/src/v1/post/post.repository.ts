@@ -1,5 +1,6 @@
-import { Post, Prisma, PrismaService } from '@libs/prisma/index'
+import { Post, PostStatus, Prisma, PrismaService } from '@libs/prisma'
 import { Injectable } from '@nestjs/common'
+import { ClsService } from 'nestjs-cls'
 import { PostCursorRequestDto } from './dto/post-cursor-request.dto'
 import { PostOffsetRequestDto } from './dto/post-offset-request.dto'
 
@@ -13,9 +14,55 @@ export type PostCursorResponse = {
     nextCursor: number | null
 }
 
+export type CreatePostData = {
+    userId: number
+    title: string
+    content: string
+    status: PostStatus
+}
+
+export type UpdatePostData = {
+    title?: string
+    content?: string
+    status?: PostStatus
+}
+
 @Injectable()
 export class PostRepository {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly cls: ClsService
+    ) {}
+
+    async findByIdAndUserId(id: number, userId: number): Promise<Post | null> {
+        return this.prisma.post.findFirst({
+            where: { id, userId, isDeleted: false }
+        })
+    }
+
+    async create(data: CreatePostData): Promise<Post> {
+        return this.prisma.post.create({
+            data: { ...data, createdBy: this.cls.get('id') }
+        })
+    }
+
+    async update(id: number, data: UpdatePostData): Promise<Post> {
+        return this.prisma.post.update({
+            where: { id },
+            data: { ...data, updatedAt: new Date(), updatedBy: this.cls.get('id') }
+        })
+    }
+
+    async softDelete(id: number): Promise<Post> {
+        return this.prisma.post.update({
+            where: { id },
+            data: {
+                isDeleted: true,
+                deletedAt: new Date(),
+                deletedBy: this.cls.get('id')
+            }
+        })
+    }
 
     async findPostsOffset(searchCondition: PostOffsetRequestDto, userId?: number): Promise<PostOffsetResponse> {
         const where: Prisma.PostWhereInput = {

@@ -1,10 +1,7 @@
-import commonEnvConfig from '@libs/common/config/env/common-env.config'
-import { BaseException } from '@libs/common/exception/base.exception'
-import { CryptoService } from '@libs/common/service/crypto.service'
-import { TokenService } from '@libs/common/service/token.service'
-import { Owner, PrismaService, UserStatus } from '@libs/prisma'
-import { CACHE_MANAGER } from '@nestjs/cache-manager'
+import { BaseException, commonEnvConfig, CryptoService, REDIS_CLIENT, TokenService } from '@libs/common'
+import { Owner, UserStatus } from '@libs/prisma'
 import { Test, TestingModule } from '@nestjs/testing'
+import { UserRepository } from '../user/user.repository'
 import { AuthService } from './auth.service'
 import { PasswordResetConfirmRequestDto } from './dto/password-reset-confirm.request.dto'
 import { PasswordResetInitRequestDto } from './dto/password-reset-init.request.dto'
@@ -27,15 +24,15 @@ const mockCommonEnv = {
 describe('AuthService', () => {
     let service: AuthService
 
-    const mockPrisma = {
-        user: {
-            findFirst: jest.fn(),
-            create: jest.fn(),
-            update: jest.fn()
-        }
+    const mockUserRepository = {
+        existsByEmail: jest.fn(),
+        create: jest.fn(),
+        findByEmail: jest.fn(),
+        findById: jest.fn(),
+        updatePassword: jest.fn()
     }
 
-    const mockCacheManager = {
+    const mockRedis = {
         get: jest.fn(),
         set: jest.fn(),
         del: jest.fn()
@@ -60,8 +57,8 @@ describe('AuthService', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 AuthService,
-                { provide: PrismaService, useValue: mockPrisma },
-                { provide: CACHE_MANAGER, useValue: mockCacheManager },
+                { provide: UserRepository, useValue: mockUserRepository },
+                { provide: REDIS_CLIENT, useValue: mockRedis },
                 { provide: commonEnvConfig.KEY, useValue: mockCommonEnv },
                 { provide: CryptoService, useValue: mockCryptoService },
                 { provide: TokenService, useValue: mockTokenService }
@@ -89,9 +86,9 @@ describe('AuthService', () => {
             }
             const hashedPassword = 'hashedpassword123'
 
-            mockPrisma.user.findFirst.mockResolvedValue(null)
+            mockUserRepository.existsByEmail.mockResolvedValue(false)
             mockCryptoService.hash.mockResolvedValue(hashedPassword)
-            mockPrisma.user.create.mockResolvedValue({
+            mockUserRepository.create.mockResolvedValue({
                 id: 1,
                 ...reqDto,
                 password: hashedPassword,
@@ -100,17 +97,12 @@ describe('AuthService', () => {
 
             await service.signup(reqDto)
 
-            expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
-                where: { email: reqDto.email, isDeleted: false }
-            })
+            expect(mockUserRepository.existsByEmail).toHaveBeenCalledWith(reqDto.email)
             expect(mockCryptoService.hash).toHaveBeenCalledWith(reqDto.password)
-            expect(mockPrisma.user.create).toHaveBeenCalledWith({
-                data: {
-                    ...reqDto,
-                    password: hashedPassword,
-                    status: UserStatus.ACTIVE,
-                    createdBy: 0
-                }
+            expect(mockUserRepository.create).toHaveBeenCalledWith({
+                ...reqDto,
+                password: hashedPassword,
+                status: UserStatus.ACTIVE
             })
         })
 
@@ -122,7 +114,7 @@ describe('AuthService', () => {
                 phone: '01012345678'
             }
 
-            mockPrisma.user.findFirst.mockResolvedValue({ id: 1, email: 'existing@example.com' })
+            mockUserRepository.existsByEmail.mockResolvedValue(true)
 
             await expect(service.signup(reqDto)).rejects.toThrow(BaseException)
         })
@@ -143,7 +135,7 @@ describe('AuthService', () => {
             const refreshToken = 'refresh-token'
             const hashedRefreshToken = 'hashed-refresh-token'
 
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findByEmail.mockResolvedValue(user)
             mockCryptoService.compare.mockResolvedValue(true)
             mockTokenService.createAccessToken.mockResolvedValue(accessToken)
             mockTokenService.createRefreshToken.mockResolvedValue(refreshToken)
@@ -154,9 +146,7 @@ describe('AuthService', () => {
 
             expect(result.resDto.accessToken).toBe(accessToken)
             expect(result.refreshToken).toBe(refreshToken)
-            expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
-                where: { email: reqDto.email, isDeleted: false }
-            })
+            expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(reqDto.email)
             expect(mockCryptoService.compare).toHaveBeenCalledWith(reqDto.password, user.password)
             expect(mockTokenService.saveRefreshToken).toHaveBeenCalledWith(
                 user.id,
@@ -170,7 +160,7 @@ describe('AuthService', () => {
         it('should throw exception if user not found', async () => {
             const reqDto = { email: 'nonexistent@example.com', password: 'password123' }
 
-            mockPrisma.user.findFirst.mockResolvedValue(null)
+            mockUserRepository.findByEmail.mockResolvedValue(null)
 
             await expect(service.signin(reqDto)).rejects.toThrow(BaseException)
         })
@@ -179,7 +169,7 @@ describe('AuthService', () => {
             const reqDto = { email: 'test@example.com', password: 'wrongpassword' }
             const user = { id: 1, password: 'hashedpassword', email: 'test@example.com' }
 
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findByEmail.mockResolvedValue(user)
             mockCryptoService.compare.mockResolvedValue(false)
 
             await expect(service.signin(reqDto)).rejects.toThrow(BaseException)
@@ -193,7 +183,7 @@ describe('AuthService', () => {
             const user = { id: 1, email: 'test@example.com' }
 
             mockTokenService.verify.mockResolvedValue(payload)
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findById.mockResolvedValue(user)
             mockTokenService.deleteRefreshToken.mockResolvedValue(undefined)
 
             await service.signout(refreshToken)
@@ -214,7 +204,7 @@ describe('AuthService', () => {
             const hashedNewRefreshToken = 'hashed-new-refresh-token'
 
             mockTokenService.verify.mockResolvedValue(payload)
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findById.mockResolvedValue(user)
             mockTokenService.getRefreshToken.mockResolvedValue(cachedToken)
             mockCryptoService.compare.mockResolvedValue(true)
             mockTokenService.deleteRefreshToken.mockResolvedValue(undefined)
@@ -237,7 +227,7 @@ describe('AuthService', () => {
             const user = { id: 1, email: 'test@example.com' }
 
             mockTokenService.verify.mockResolvedValue(payload)
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findById.mockResolvedValue(user)
             mockTokenService.getRefreshToken.mockResolvedValue(undefined)
 
             await expect(service.refreshToken(refreshToken)).rejects.toThrow(BaseException)
@@ -250,7 +240,7 @@ describe('AuthService', () => {
             const cachedToken = 'cached-hashed-token'
 
             mockTokenService.verify.mockResolvedValue(payload)
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findById.mockResolvedValue(user)
             mockTokenService.getRefreshToken.mockResolvedValue(cachedToken)
             mockCryptoService.compare.mockResolvedValue(false)
 
@@ -261,24 +251,21 @@ describe('AuthService', () => {
     describe('issueCode', () => {
         it('should successfully issue verification code', async () => {
             const reqDto: PasswordResetInitRequestDto = { email: 'test@example.com' }
-            const normalizedEmail = 'test@example.com'
             const user = { id: 1, email: 'test@example.com', name: 'Test User' }
 
-            mockPrisma.user.findFirst.mockResolvedValue(user)
-            mockCacheManager.set.mockResolvedValue(undefined)
+            mockUserRepository.findByEmail.mockResolvedValue(user)
+            mockRedis.set.mockResolvedValue('OK')
 
             await service.issueCode(reqDto)
 
-            expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
-                where: { email: normalizedEmail, isDeleted: false }
-            })
-            expect(mockCacheManager.set).toHaveBeenCalled()
+            expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('test@example.com')
+            expect(mockRedis.set).toHaveBeenCalled()
         })
 
         it('should not throw exception if user not found (email enumeration prevention)', async () => {
             const reqDto: PasswordResetInitRequestDto = { email: 'nonexistent@example.com' }
 
-            mockPrisma.user.findFirst.mockResolvedValue(null)
+            mockUserRepository.findByEmail.mockResolvedValue(null)
 
             await expect(service.issueCode(reqDto)).resolves.not.toThrow()
         })
@@ -289,18 +276,17 @@ describe('AuthService', () => {
 
         it('should successfully verify code and return reset token', async () => {
             const reqDto: PasswordResetVerifyRequestDto = { email: 'test@example.com', otp: '123456' }
-            const normalizedEmail = 'test@example.com'
-            const user = { id: 1, email: normalizedEmail }
+            const user = { id: 1, email: 'test@example.com' }
             const codeData = { code: '123456', expiresAt: Date.now() + 300000, attempts: 0 }
             const codeKey = `${CACHE_KEY_CODE_PREFIX}${user.id}`
 
-            mockPrisma.user.findFirst.mockResolvedValue(user)
-            mockCacheManager.get.mockImplementation((key: string) => {
+            mockUserRepository.findByEmail.mockResolvedValue(user)
+            mockRedis.get.mockImplementation((key: string) => {
                 if (key === codeKey) return Promise.resolve(JSON.stringify(codeData))
                 return Promise.resolve(null)
             })
-            mockCacheManager.del.mockResolvedValue(undefined)
-            mockCacheManager.set.mockResolvedValue(undefined)
+            mockRedis.del.mockResolvedValue(1)
+            mockRedis.set.mockResolvedValue('OK')
 
             const result = await service.verifyCode(reqDto)
 
@@ -310,28 +296,26 @@ describe('AuthService', () => {
 
         it('should throw exception if code expired', async () => {
             const reqDto: PasswordResetVerifyRequestDto = { email: 'test@example.com', otp: '123456' }
-            const normalizedEmail = 'test@example.com'
-            const user = { id: 1, email: normalizedEmail }
+            const user = { id: 1, email: 'test@example.com' }
 
-            mockPrisma.user.findFirst.mockResolvedValue(user)
-            mockCacheManager.get.mockResolvedValue(null)
+            mockUserRepository.findByEmail.mockResolvedValue(user)
+            mockRedis.get.mockResolvedValue(null)
 
             await expect(service.verifyCode(reqDto)).rejects.toThrow(BaseException)
         })
 
         it('should throw exception if code is invalid', async () => {
             const reqDto: PasswordResetVerifyRequestDto = { email: 'test@example.com', otp: '999999' }
-            const normalizedEmail = 'test@example.com'
-            const user = { id: 1, email: normalizedEmail }
+            const user = { id: 1, email: 'test@example.com' }
             const codeData = { code: '123456', expiresAt: Date.now() + 300000, attempts: 0 }
             const codeKey = `${CACHE_KEY_CODE_PREFIX}${user.id}`
 
-            mockPrisma.user.findFirst.mockResolvedValue(user)
-            mockCacheManager.get.mockImplementation((key: string) => {
+            mockUserRepository.findByEmail.mockResolvedValue(user)
+            mockRedis.get.mockImplementation((key: string) => {
                 if (key === codeKey) return Promise.resolve(JSON.stringify(codeData))
                 return Promise.resolve(null)
             })
-            mockCacheManager.set.mockResolvedValue(undefined)
+            mockRedis.set.mockResolvedValue('OK')
 
             await expect(service.verifyCode(reqDto)).rejects.toThrow(BaseException)
         })
@@ -350,23 +334,20 @@ describe('AuthService', () => {
             const hashedPassword = 'newhashedpassword'
             const tokenKey = `${CACHE_KEY_TOKEN_PREFIX}${reqDto.resetToken}`
 
-            mockCacheManager.get.mockImplementation((key: string) => {
-                if (key === tokenKey) return Promise.resolve(userId)
+            mockRedis.get.mockImplementation((key: string) => {
+                if (key === tokenKey) return Promise.resolve(String(userId))
                 return Promise.resolve(null)
             })
-            mockPrisma.user.findFirst.mockResolvedValue(user)
+            mockUserRepository.findById.mockResolvedValue(user)
             mockCryptoService.hash.mockResolvedValue(hashedPassword)
-            mockCacheManager.del.mockResolvedValue(undefined)
-            mockPrisma.user.update.mockResolvedValue({ ...user, password: hashedPassword })
+            mockRedis.del.mockResolvedValue(1)
+            mockUserRepository.updatePassword.mockResolvedValue({ ...user, password: hashedPassword })
             mockTokenService.deleteAllRefreshTokens.mockResolvedValue(undefined)
 
             await service.resetPassword(reqDto)
 
             expect(mockCryptoService.hash).toHaveBeenCalledWith(reqDto.newPassword)
-            expect(mockPrisma.user.update).toHaveBeenCalledWith({
-                where: { id: user.id },
-                data: { password: hashedPassword, updatedBy: user.id }
-            })
+            expect(mockUserRepository.updatePassword).toHaveBeenCalledWith(user.id, hashedPassword)
             expect(mockTokenService.deleteAllRefreshTokens).toHaveBeenCalledWith(user.id, Owner.USER)
         })
 
@@ -376,7 +357,7 @@ describe('AuthService', () => {
                 newPassword: 'newpass1234'
             }
 
-            mockCacheManager.get.mockResolvedValue(null)
+            mockRedis.get.mockResolvedValue(null)
 
             await expect(service.resetPassword(reqDto)).rejects.toThrow(BaseException)
         })
@@ -389,11 +370,11 @@ describe('AuthService', () => {
             const userId = 1
             const tokenKey = `${CACHE_KEY_TOKEN_PREFIX}${reqDto.resetToken}`
 
-            mockCacheManager.get.mockImplementation((key: string) => {
-                if (key === tokenKey) return Promise.resolve(userId)
+            mockRedis.get.mockImplementation((key: string) => {
+                if (key === tokenKey) return Promise.resolve(String(userId))
                 return Promise.resolve(null)
             })
-            mockPrisma.user.findFirst.mockResolvedValue(null)
+            mockUserRepository.findById.mockResolvedValue(null)
 
             await expect(service.resetPassword(reqDto)).rejects.toThrow(BaseException)
         })

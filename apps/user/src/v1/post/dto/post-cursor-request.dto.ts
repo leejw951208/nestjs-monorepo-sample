@@ -1,4 +1,4 @@
-import { CursorRequestDto } from '@libs/common/dto/pagination-request.dto'
+import { CursorRequestDto } from '@libs/common'
 import { ApiProperty } from '@nestjs/swagger'
 import { IsOptional, IsString } from 'class-validator'
 

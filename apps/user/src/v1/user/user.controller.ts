@@ -1,17 +1,22 @@
-import { ApiAuthGuard } from '@libs/common/decorator/api-auth-guard.decorator'
-import { ApiOkBaseResponse } from '@libs/common/decorator/api-base-ok-response.decorator'
-import { ApiExceptionResponse } from '@libs/common/decorator/api-exception-response.decorator'
-import { CurrentUser } from '@libs/common/decorator/jwt-payload.decorator'
-import { USER_ERROR } from '@libs/common/exception/error.code'
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch } from '@nestjs/common'
+import {
+    ApiAuthGuard,
+    ApiExceptionResponse,
+    ApiOkBaseResponse,
+    CurrentUser,
+    CustomThrottlerGuard,
+    type JwtPayload,
+    USER_ERROR
+} from '@libs/common'
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, UseGuards } from '@nestjs/common'
 import { ApiBody, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { UserResponseDto } from './dto/user-response.dto'
 import { UserUpdateDto } from './dto/user-update.dto'
 import { UserService } from './user.service'
-import { type JwtPayload } from '@libs/common/service/token.service'
+import { Throttle } from '@nestjs/throttler'
 
 @ApiTags('users')
 @ApiAuthGuard()
+@UseGuards(CustomThrottlerGuard)
 @Controller({ path: 'users', version: '1' })
 export class UserController {
     constructor(private readonly service: UserService) {}
@@ -19,6 +24,7 @@ export class UserController {
     @ApiOperation({ summary: '내 정보 조회' })
     @ApiOkBaseResponse({ type: UserResponseDto })
     @ApiExceptionResponse(USER_ERROR.NOT_FOUND)
+    @Throttle({ ip: { limit: 5, ttl: 60000 }, user: { limit: 5, ttl: 60000 } })
     @Get('me')
     async getMe(@CurrentUser() payload: JwtPayload): Promise<UserResponseDto> {
         return await this.service.getMe(payload.id)

@@ -1,11 +1,13 @@
-import { ApiAuthGuard } from '@libs/common/decorator/api-auth-guard.decorator'
-import { ApiOkBaseResponse } from '@libs/common/decorator/api-base-ok-response.decorator'
-import { ApiExceptionResponse } from '@libs/common/decorator/api-exception-response.decorator'
-import { ApiOkCursorPaginationResponse } from '@libs/common/decorator/api-page-ok-response.decorator'
-import { CurrentUser } from '@libs/common/decorator/jwt-payload.decorator'
-import { CursorResponseDto } from '@libs/common/dto/pagination-response.dto'
-import { NOTIFICATION_ERROR } from '@libs/common/exception/error.code'
-import { type JwtPayload } from '@libs/common/service/token.service'
+import {
+    ApiAuthGuard,
+    ApiExceptionResponse,
+    ApiOkBaseResponse,
+    ApiOkCursorPaginationResponse,
+    CurrentUser,
+    CursorResponseDto,
+    NOTIFICATION_ERROR,
+    type JwtPayload
+} from '@libs/common'
 import { Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Query } from '@nestjs/common'
 import { ApiNoContentResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { NotificationCursorRequestDto } from './dto/notification-cursor-request.dto'
@@ -20,7 +22,7 @@ export class NotificationController {
 
     @ApiOperation({ summary: '내 알림 목록 조회 (Cursor Pagination)' })
     @ApiOkCursorPaginationResponse({ type: NotificationResponseDto })
-    @Get()
+    @Get('me/cursor')
     async getMyNotifications(
         @CurrentUser() payload: JwtPayload,
         @Query() searchCondition: NotificationCursorRequestDto
@@ -53,7 +55,7 @@ export class NotificationController {
     @ApiOperation({ summary: '모든 알림 읽음 처리' })
     @ApiNoContentResponse({ description: '전체 읽음 처리 성공' })
     @HttpCode(HttpStatus.NO_CONTENT)
-    @Patch()
+    @Patch('read-all')
     async readAllNotifications(@CurrentUser() payload: JwtPayload): Promise<void> {
         await this.service.readAllNotifications(payload.id)
     }

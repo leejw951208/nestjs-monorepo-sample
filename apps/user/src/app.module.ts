@@ -1,20 +1,13 @@
-import KeyvRedis from '@keyv/redis'
-import commonEnvConfig from '@libs/common/config/env/common-env.config'
-import { winstonModuleAsyncOptions } from '@libs/common/config/winston.config'
-import { JwtAccessGuard } from '@libs/common/guard/jwt-access.guard'
-import { CustomClsMiddleware } from '@libs/common/middleware/cls.middleware'
-import { LoggerMiddleware } from '@libs/common/middleware/logger.middleware'
-import { PrismaModule } from '@libs/prisma/prisma.module'
-import { CacheModule } from '@nestjs/cache-manager'
+import { CommonModule, commonEnvConfig, CustomClsMiddleware, JwtAccessGuard, LoggerMiddleware, winstonModuleAsyncOptions } from '@libs/common'
+import { PrismaModule } from '@libs/prisma'
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common'
-import { ConfigModule, ConfigService } from '@nestjs/config'
+import { ConfigModule } from '@nestjs/config'
 import { APP_GUARD } from '@nestjs/core'
 import { WinstonModule } from 'nest-winston'
 import { ClsModule } from 'nestjs-cls'
 import * as path from 'path'
-
-import userEnvConfig from './config/env/user-env.config'
-import { validateUserEnv } from './config/env/user-env.validator'
+import { userEnvConfig } from './configs/user-env.config'
+import { validateUserEnv } from './configs/user-env.validator'
 import { AuthModule } from './v1/auth/auth.module'
 import { NotificationModule } from './v1/notification/notification.module'
 import { PostModule } from './v1/post/post.module'
@@ -31,18 +24,12 @@ import { UserModule } from './v1/user/user.module'
             load: [commonEnvConfig, userEnvConfig],
             validate: validateUserEnv
         }),
-        CacheModule.registerAsync({
-            isGlobal: true,
-            inject: [ConfigService],
-            useFactory: async (configService: ConfigService) => ({
-                stores: [new KeyvRedis(configService.get<string>('REDIS_URL'))]
-            })
-        }),
         ClsModule.forRoot({
             global: true,
             middleware: { mount: false }
         }),
         WinstonModule.forRootAsync(winstonModuleAsyncOptions),
+        CommonModule,
         PrismaModule,
         AuthModule,
         UserModule,

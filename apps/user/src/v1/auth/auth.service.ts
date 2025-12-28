@@ -1,17 +1,12 @@
-import commonEnvConfig from '@libs/common/config/env/common-env.config'
-import { BaseException } from '@libs/common/exception/base.exception'
-import { AUTH_ERROR, USER_ERROR } from '@libs/common/exception/error.code'
-import { CryptoService } from '@libs/common/service/crypto.service'
-import { TokenService } from '@libs/common/service/token.service'
-import { Owner, UserStatus } from '@libs/prisma/index'
-import { PrismaService } from '@libs/prisma/prisma.service'
-import { CACHE_MANAGER } from '@nestjs/cache-manager'
+import { AUTH_ERROR, BaseException, commonEnvConfig, CryptoService, REDIS_CLIENT, TokenService, USER_ERROR } from '@libs/common'
+import { Owner, UserStatus } from '@libs/prisma'
 import { Inject, Injectable } from '@nestjs/common'
 import { type ConfigType } from '@nestjs/config'
-import { type Cache } from 'cache-manager'
 import { plainToInstance } from 'class-transformer'
 import { randomBytes, randomInt, randomUUID, timingSafeEqual } from 'crypto'
+import Redis from 'ioredis'
 import { UserResponseDto } from '../user/dto/user-response.dto'
+import { UserRepository } from '../user/user.repository'
 import { PasswordResetConfirmRequestDto } from './dto/password-reset-confirm.request.dto'
 import { PasswordResetInitRequestDto } from './dto/password-reset-init.request.dto'
 import { PasswordResetVerifyRequestDto } from './dto/password-reset-verify.request.dto'
@@ -47,8 +42,8 @@ export class AuthService {
     private readonly PASSWORD_RESET_TOKEN_TTL = 900000 // 15분
 
     constructor(
-        private readonly prisma: PrismaService,
-        @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+        private readonly userRepository: UserRepository,
+        @Inject(REDIS_CLIENT) private readonly redis: Redis,
         @Inject(commonEnvConfig.KEY) private readonly config: ConfigType<typeof commonEnvConfig>,
         private readonly cryptoService: CryptoService,
         private readonly tokenService: TokenService
@@ -63,22 +58,17 @@ export class AuthService {
      */
     async signup(reqDto: SignupRequestDto): Promise<void> {
         // 1. 이미 존재하는 이메일인지 확인
-        const foundUser = await this.prisma.user.findFirst({
-            where: { email: reqDto.email, isDeleted: false }
-        })
+        const exists = await this.userRepository.existsByEmail(reqDto.email)
         // 2. 이미 존재하면 에러 발생
-        if (foundUser) throw new BaseException(USER_ERROR.ALREADY_EXISTS_EMAIL, this.constructor.name)
+        if (exists) throw new BaseException(USER_ERROR.ALREADY_EXISTS_EMAIL, this.constructor.name)
 
         // 3. 비밀번호 해싱
         const hashedPassword = await this.cryptoService.hash(reqDto.password)
         // 4. 사용자 생성
-        await this.prisma.user.create({
-            data: {
-                ...reqDto,
-                password: hashedPassword,
-                status: UserStatus.ACTIVE,
-                createdBy: 0
-            }
+        await this.userRepository.create({
+            ...reqDto,
+            password: hashedPassword,
+            status: UserStatus.ACTIVE
         })
     }
 
@@ -92,7 +82,7 @@ export class AuthService {
      */
     async signin(reqDto: SigninRequestDto): Promise<{ resDto: SigninResponseDto; refreshToken: string }> {
         // 1. 이메일로 사용자 찾기
-        const foundUser = await this.prisma.user.findFirst({ where: { email: reqDto.email, isDeleted: false } })
+        const foundUser = await this.userRepository.findByEmail(reqDto.email)
         // 사용자가 존재하지 않으면 에러 발생
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
@@ -139,7 +129,7 @@ export class AuthService {
         const payload = await this.tokenService.verify(refreshToken, 're')
 
         // 2. 페이로드의 ID로 사용자 찾기
-        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id, isDeleted: false } })
+        const foundUser = await this.userRepository.findById(payload.id)
         // 사용자를 찾을 수 없으면 에러 발생
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
@@ -161,7 +151,7 @@ export class AuthService {
         const payload = await this.tokenService.verify(refreshToken, 're')
 
         // 2. 페이로드의 ID로 사용자 찾기
-        const foundUser = await this.prisma.user.findFirst({ where: { id: payload.id, isDeleted: false } })
+        const foundUser = await this.userRepository.findById(payload.id)
         // 사용자를 찾을 수 없으면 에러 발생
         if (!foundUser) throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
 
@@ -206,7 +196,7 @@ export class AuthService {
         // 1. 이메일 정규화 (공백 제거 및 소문자 변환)
         const normalizedEmail = reqDto.email.trim().toLowerCase()
         // 2. 이메일로 사용자 찾기
-        const user = await this.prisma.user.findFirst({ where: { email: normalizedEmail, isDeleted: false } })
+        const user = await this.userRepository.findByEmail(normalizedEmail)
 
         // 사용자가 없으면 코드 발급을 중단하고 종료 (보안상의 이유로 사용자 존재 여부 노출 안 함)
         if (!user) return
@@ -224,7 +214,7 @@ export class AuthService {
         }
 
         // 5. 캐시에 코드 데이터 저장 (키: `password-reset:code:userId`, 값: JSON 문자열, 만료 시간: TTL)
-        await this.cacheManager.set(`${this.PASSWORD_RESET_CODE_PREFIX}${user.id}`, JSON.stringify(codeData), this.PASSWORD_RESET_CODE_TTL)
+        await this.redis.set(`${this.PASSWORD_RESET_CODE_PREFIX}${user.id}`, JSON.stringify(codeData), 'PX', this.PASSWORD_RESET_CODE_TTL)
         // 6. 사용자 이메일로 인증 코드 발송
         await this.sendVerificationEmail(user.email, code)
     }
@@ -242,7 +232,7 @@ export class AuthService {
         // 1. 이메일 정규화
         const normalizedEmail = reqDto.email.trim().toLowerCase()
         // 2. 이메일로 사용자 찾기
-        const user = await this.prisma.user.findFirst({ where: { email: normalizedEmail, isDeleted: false } })
+        const user = await this.userRepository.findByEmail(normalizedEmail)
 
         // 3. 사용자가 없으면 지연 후 에러 발생 (보안상의 이유로 사용자 존재 여부 노출 방지)
         if (!user) {
@@ -252,46 +242,44 @@ export class AuthService {
 
         // 4. 캐시 키 생성 및 저장된 코드 데이터 가져오기
         const codeKey = `${this.PASSWORD_RESET_CODE_PREFIX}${user.id}`
-        const storedData = await this.cacheManager.get<string>(codeKey)
+        const codeDataJson = await this.redis.get(codeKey)
+        const codeData = codeDataJson ? (JSON.parse(codeDataJson) as PasswordResetCodeData) : null
 
         // 5. 저장된 데이터가 없으면 코드 만료 에러 발생
-        if (!storedData) {
+        if (!codeData) {
             throw new BaseException(AUTH_ERROR.VERIFICATION_CODE_EXPIRED, this.constructor.name)
         }
 
-        // 6. JSON 문자열을 PasswordResetCodeData 객체로 파싱
-        const codeData: PasswordResetCodeData = JSON.parse(storedData)
-
-        // 7. 코드 만료 시간 확인
+        // 6. 코드 만료 시간 확인
         if (Date.now() > codeData.expiresAt) {
-            await this.cacheManager.del(codeKey) // 만료된 코드 캐시에서 삭제
+            await this.redis.del(codeKey) // 만료된 코드 캐시에서 삭제
             throw new BaseException(AUTH_ERROR.VERIFICATION_CODE_EXPIRED, this.constructor.name)
         }
 
-        // 8. 최대 시도 횟수 확인
+        // 7. 최대 시도 횟수 확인
         if (codeData.attempts >= this.PASSWORD_RESET_CODE_MAX_ATTEMPTS) {
-            await this.cacheManager.del(codeKey) // 최대 시도 횟수 초과 시 코드 캐시에서 삭제
+            await this.redis.del(codeKey) // 최대 시도 횟수 초과 시 코드 캐시에서 삭제
             throw new BaseException(AUTH_ERROR.VERIFICATION_CODE_MAX_ATTEMPTS_REACHED, this.constructor.name)
         }
 
-        // 9. 입력된 OTP 코드와 저장된 코드 유효성 검사
+        // 8. 입력된 OTP 코드와 저장된 코드 유효성 검사
         const isValid = this.validateCode(reqDto.otp, codeData.code)
 
-        // 10. 코드가 유효하지 않으면 시도 횟수 증가 및 에러 발생
+        // 9. 코드가 유효하지 않으면 시도 횟수 증가 및 에러 발생
         if (!isValid) {
             codeData.attempts += 1
-            await this.cacheManager.set(codeKey, JSON.stringify(codeData), this.PASSWORD_RESET_CODE_TTL) // 업데이트된 코드 데이터 캐시에 저장
+            await this.redis.set(codeKey, JSON.stringify(codeData), 'PX', this.PASSWORD_RESET_CODE_TTL) // 업데이트된 코드 데이터 캐시에 저장
             throw new BaseException(AUTH_ERROR.VERIFICATION_CODE_INVALID, this.constructor.name)
         }
 
-        // 11. 코드가 유효하면 캐시에서 코드 삭제
-        await this.cacheManager.del(codeKey)
+        // 10. 코드가 유효하면 캐시에서 코드 삭제
+        await this.redis.del(codeKey)
 
-        // 12. 비밀번호 재설정 토큰 생성 및 캐시에 저장
+        // 11. 비밀번호 재설정 토큰 생성 및 캐시에 저장
         const resetToken = randomBytes(16).toString('hex') // 16바이트 랜덤 토큰 생성
-        await this.cacheManager.set(`${this.PASSWORD_RESET_TOKEN_PREFIX}${resetToken}`, user.id, this.PASSWORD_RESET_TOKEN_TTL)
+        await this.redis.set(`${this.PASSWORD_RESET_TOKEN_PREFIX}${resetToken}`, String(user.id), 'PX', this.PASSWORD_RESET_TOKEN_TTL)
 
-        // 13. 재설정 토큰 반환
+        // 12. 재설정 토큰 반환
         return plainToInstance(PasswordResetVerifyResponseDto, { resetToken })
     }
 
@@ -308,7 +296,8 @@ export class AuthService {
 
         // 1. 캐시에서 재설정 토큰에 해당하는 사용자 ID 가져오기
         const tokenKey = `${this.PASSWORD_RESET_TOKEN_PREFIX}${resetToken}`
-        const userId = await this.cacheManager.get<number>(tokenKey)
+        const userIdStr = await this.redis.get(tokenKey)
+        const userId = userIdStr ? Number(userIdStr) : null
 
         // 2. 사용자 ID가 없으면 유효하지 않은 토큰 에러 발생
         if (!userId) {
@@ -316,7 +305,7 @@ export class AuthService {
         }
 
         // 3. 사용자 ID로 사용자 찾기
-        const user = await this.prisma.user.findFirst({ where: { id: userId, isDeleted: false } })
+        const user = await this.userRepository.findById(userId)
         // 사용자를 찾을 수 없으면 에러 발생
         if (!user) {
             throw new BaseException(USER_ERROR.NOT_FOUND, this.constructor.name)
@@ -326,11 +315,8 @@ export class AuthService {
         const hashedPassword = await this.cryptoService.hash(newPassword)
 
         // 5. 캐시에서 재설정 토큰 삭제 및 사용자 비밀번호 업데이트
-        await this.cacheManager.del(tokenKey)
-        await this.prisma.user.update({
-            where: { id: user.id },
-            data: { password: hashedPassword, updatedBy: user.id }
-        })
+        await this.redis.del(tokenKey)
+        await this.userRepository.updatePassword(user.id, hashedPassword)
 
         // 6. 해당 사용자의 모든 리프레시 토큰 삭제 (보안 강화)
         await this.tokenService.deleteAllRefreshTokens(user.id, Owner.USER)

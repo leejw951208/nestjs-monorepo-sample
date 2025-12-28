@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator'
+import { IsEmail, IsNotEmpty } from 'class-validator'
 
 export class PasswordResetInitRequestDto {
     @ApiProperty({ type: String, required: true, description: '이메일', example: 'testuser@user.com' })

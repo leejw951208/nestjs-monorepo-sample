@@ -1,4 +1,4 @@
-import { PostStatus } from '@libs/prisma/index'
+import { PostStatus } from '@libs/prisma'
 import { ApiProperty } from '@nestjs/swagger'
 import { Expose } from 'class-transformer'
 

@@ -1,21 +1,13 @@
-import { CursorResponseDto } from '@libs/common/dto/pagination-response.dto'
-import { BaseException } from '@libs/common/exception/base.exception'
-import { NOTIFICATION_ERROR } from '@libs/common/exception/error.code'
-import { PrismaService } from '@libs/prisma/prisma.service'
+import { BaseException, CursorResponseDto, NOTIFICATION_ERROR } from '@libs/common'
 import { Injectable } from '@nestjs/common'
 import { plainToInstance } from 'class-transformer'
-import { ClsService } from 'nestjs-cls'
 import { NotificationCursorRequestDto } from './dto/notification-cursor-request.dto'
 import { NotificationResponseDto } from './dto/notification-response.dto'
 import { NotificationRepository } from './notification.repository'
 
 @Injectable()
 export class NotificationService {
-    constructor(
-        private readonly prisma: PrismaService,
-        private readonly repository: NotificationRepository,
-        private readonly cls: ClsService
-    ) {}
+    constructor(private readonly repository: NotificationRepository) {}
 
     async getMyNotifications(
         searchCondition: NotificationCursorRequestDto,
@@ -23,9 +15,10 @@ export class NotificationService {
     ): Promise<CursorResponseDto<NotificationResponseDto>> {
         const { items, nextCursor } = await this.repository.findNotificationsCursor(searchCondition, userId)
 
-        const notificationReads = await this.prisma.notificationRead.findMany({
-            where: { userId, notificationId: { in: items.map((item) => item.id) } }
-        })
+        const notificationReads = await this.repository.findReadsByNotificationIds(
+            userId,
+            items.map((item) => item.id)
+        )
         const notificationReadMap = new Map(notificationReads.map((item) => [item.notificationId, item.createdAt]))
 
         const mappedItems = items.map((item) => ({
@@ -41,21 +34,13 @@ export class NotificationService {
     }
 
     async getNotification(userId: number, notificationId: number): Promise<NotificationResponseDto> {
-        const notification = await this.prisma.notification.findFirst({
-            where: {
-                id: notificationId,
-                isDeleted: false,
-                OR: [{ userId }, { userId: null }]
-            }
-        })
+        const notification = await this.repository.findByIdForUser(notificationId, userId)
 
         if (!notification) {
             throw new BaseException(NOTIFICATION_ERROR.NOT_FOUND, this.constructor.name)
         }
 
-        const notificationRead = await this.prisma.notificationRead.findFirst({
-            where: { userId, notificationId }
-        })
+        const notificationRead = await this.repository.findReadByNotificationId(userId, notificationId)
 
         return plainToInstance(
             NotificationResponseDto,
@@ -69,73 +54,34 @@ export class NotificationService {
     }
 
     async readNotification(userId: number, notificationId: number): Promise<void> {
-        const foundNotification = await this.prisma.notification.findFirst({
-            where: {
-                id: notificationId,
-                isDeleted: false,
-                OR: [{ userId }, { userId: null }]
-            }
-        })
+        const foundNotification = await this.repository.findByIdForUser(notificationId, userId)
 
         if (!foundNotification) {
             throw new BaseException(NOTIFICATION_ERROR.NOT_FOUND, this.constructor.name)
         }
 
-        const notificationRead = await this.prisma.notificationRead.findFirst({
-            where: { userId, notificationId }
-        })
+        const notificationRead = await this.repository.findReadByNotificationId(userId, notificationId)
 
         if (notificationRead) return
 
-        await this.prisma.notificationRead.create({
-            data: { userId, notificationId, createdBy: this.cls.get('id') }
-        })
+        await this.repository.createRead(userId, notificationId)
     }
 
     async readAllNotifications(userId: number): Promise<void> {
-        const unreadNotifications = await this.prisma.notification.findMany({
-            where: {
-                isDeleted: false,
-                OR: [{ userId }, { userId: null }],
-                notificationReads: { none: { userId } }
-            },
-            select: { id: true }
-        })
+        const unreadNotificationIds = await this.repository.findUnreadNotificationIds(userId)
 
-        if (unreadNotifications.length === 0) return
+        if (unreadNotificationIds.length === 0) return
 
-        const currentUserId = this.cls.get('id')
-        await this.prisma.notificationRead.createMany({
-            data: unreadNotifications.map((notification) => ({
-                userId,
-                notificationId: notification.id,
-                createdBy: currentUserId
-            }))
-        })
+        await this.repository.createManyReads(userId, unreadNotificationIds)
     }
 
     async deleteNotification(userId: number, notificationId: number): Promise<void> {
-        const notification = await this.prisma.notification.findFirst({
-            where: {
-                id: notificationId,
-                isDeleted: false,
-                OR: [{ userId }, { userId: null }]
-            }
-        })
+        const notification = await this.repository.findByIdForUser(notificationId, userId)
 
         if (!notification) {
             throw new BaseException(NOTIFICATION_ERROR.NOT_FOUND, this.constructor.name)
         }
 
-        const currentUserId = this.cls.get('id')
-        await this.prisma.notification.update({
-            where: { id: notificationId },
-            data: {
-                isDeleted: true,
-                deletedAt: new Date(),
-                deletedBy: currentUserId,
-                updatedBy: currentUserId
-            }
-        })
+        await this.repository.softDelete(notificationId)
     }
 }

@@ -13,12 +13,12 @@
         "start:local:user": "NODE_ENV=local nest start user --watch",
         "start:local:admin": "NODE_ENV=local nest start admin --watch",
         "start:debug": "nest start --debug --watch",
-        "db:generate": "tsx libs/prisma/config/scripts/generate.ts",
-        "db:migrate": "tsx libs/prisma/config/scripts/migrate.ts",
-        "db:migrate:create": "tsx libs/prisma/config/scripts/migrate-create.ts",
-        "db:reset": "tsx libs/prisma/config/scripts/db-reset.ts",
-        "db:seed:create": "tsx libs/prisma/config/scripts/seed-create.ts",
-        "db:seed:run": "tsx libs/prisma/config/scripts/seed-run.ts",
+        "db:generate": "tsx libs/prisma/src/configs/scripts/generate.ts",
+        "db:migrate": "tsx libs/prisma/src/configs/scripts/migrate.ts",
+        "db:migrate:create": "tsx libs/prisma/src/configs/scripts/migrate-create.ts",
+        "db:reset": "tsx libs/prisma/src/configs/scripts/db-reset.ts",
+        "db:seed:create": "tsx libs/prisma/src/configs/scripts/seed-create.ts",
+        "db:seed:run": "tsx libs/prisma/src/configs/scripts/seed-run.ts",
         "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
         "test": "jest",
         "test:user": "jest user",
@@ -38,6 +38,7 @@
         "@nestjs/passport": "^11.0.5",
         "@nestjs/platform-express": "^11.0.1",
         "@nestjs/swagger": "^11.2.0",
+        "@nestjs/throttler": "^6.5.0",
         "@prisma/adapter-pg": "^7.2.0",
         "@prisma/client": "^7.2.0",
         "bcrypt": "^6.0.0",
@@ -46,6 +47,7 @@
         "class-validator": "^0.14.2",
         "cookie-parser": "^1.4.7",
         "husky": "^9.1.7",
+        "ioredis": "^5.8.2",
         "joi": "^18.0.2",
         "nest-winston": "^1.10.2",
         "nestjs-cls": "^6.0.1",
@@ -112,9 +114,10 @@
             "<rootDir>/libs/"
         ],
         "moduleNameMapper": {
-            "^@libs/common(|/.*)$": "<rootDir>/libs/common/src/$1",
-            "^@libs/prisma(|/.*)$": "<rootDir>/libs/prisma/src/$1",
-            "^@apps/(.*)$": "<rootDir>/apps/$1"
+            "^@libs/common$": "<rootDir>/libs/common/src",
+            "^@libs/common/(.*)$": "<rootDir>/libs/common/src/$1",
+            "^@libs/prisma$": "<rootDir>/libs/prisma/src",
+            "^@libs/prisma/(.*)$": "<rootDir>/libs/prisma/src/$1"
         }
     }
 }

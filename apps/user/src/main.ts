@@ -1,5 +1,4 @@
-import { setupSwagger } from '@libs/common/config/swagger.config'
-import { GlobalExceptionHandler } from '@libs/common/exception/global-exception-handler'
+import { GlobalExceptionHandler, setupSwagger } from '@libs/common'
 import { ClassSerializerInterceptor, ValidationPipe, VersioningType } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { NestFactory, Reflector } from '@nestjs/core'

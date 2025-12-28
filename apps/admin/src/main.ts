@@ -1,12 +1,10 @@
-import { setupSwagger } from '@libs/common/config/swagger.config'
-import { GlobalExceptionHandler } from '@libs/common/exception/global-exception-handler'
+import { GlobalExceptionHandler, setupSwagger } from '@libs/common'
 import { ClassSerializerInterceptor, ValidationPipe, VersioningType } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { NestFactory, Reflector } from '@nestjs/core'
+import cookieParser from 'cookie-parser'
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston'
 import { AppModule } from './app.module'
-import cookieParser from 'cookie-parser'
-import { SuccessStatusInterceptor } from '../../../libs/common/src/interceptor/success-status-interceptor/success-status-interceptor.interceptor'
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule)
@@ -32,15 +30,16 @@ async function bootstrap() {
 
     app.use(cookieParser())
 
-    app.useGlobalInterceptors(new SuccessStatusInterceptor())
-
     // 스웨거 설정
-    setupSwagger(app)
+    setupSwagger(app, 'admin')
 
-    await app.listen(config.get<number>('admin.port') ?? 3000).then(() => {
+    const port = config.get<number>('admin.port') ?? 3000
+    const nodeEnv = config.get<string>('admin.nodeEnv') ?? 'local'
+
+    await app.listen(port).then(() => {
         logger.log(
-            `[Admin] App is running on port ${config.get<number>('admin.port') ?? 3000} in ${config.get<string>('admin.nodeEnv') ?? 'local'} environment,
-                swagger: http://localhost:${config.get<number>('admin.port') ?? 3000}/api/${apiVersion}/${config.get<string>('admin.appName') ?? 'admin'}/docs
+            `[Admin] App is running on port ${port} in ${nodeEnv} environment,
+                swagger: http://localhost:${port}/admin/api/docs
             `
         )
     })

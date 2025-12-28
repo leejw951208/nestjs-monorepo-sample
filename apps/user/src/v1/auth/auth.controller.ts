@@ -1,9 +1,4 @@
-import { ApiOkBaseResponse } from '@libs/common/decorator/api-base-ok-response.decorator'
-import { Public } from '@libs/common/decorator/public.decorator'
-import { ResponseDto } from '@libs/common/dto/response.dto'
-import { BaseException } from '@libs/common/exception/base.exception'
-import { AUTH_ERROR } from '@libs/common/exception/error.code'
-import { JwtRefreshGuard } from '@libs/common/guard/jwt-refresh.guard'
+import { ApiExceptionResponse, ApiOkBaseResponse, AUTH_ERROR, BaseException, JwtRefreshGuard, Public, ResponseDto, USER_ERROR } from '@libs/common'
 import { Body, Controller, Delete, HttpCode, HttpStatus, Patch, Post, Req, Res, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import type { Request, Response } from 'express'
@@ -26,6 +21,7 @@ export class AuthController {
     @ApiOperation({ summary: '회원가입' })
     @ApiBody({ type: SignupRequestDto })
     @ApiCreatedResponse({ description: '회원가입 성공' })
+    @ApiExceptionResponse(USER_ERROR.ALREADY_EXISTS_EMAIL)
     @HttpCode(HttpStatus.CREATED)
     @Public()
     @Post('signup')
@@ -39,6 +35,7 @@ export class AuthController {
     })
     @ApiBody({ type: SigninRequestDto })
     @ApiOkBaseResponse({ type: SigninResponseDto })
+    @ApiExceptionResponse([USER_ERROR.NOT_FOUND, AUTH_ERROR.PASSWORD_NOT_MATCHED])
     @Public()
     @Post('signin')
     async signin(@Body() reqDto: SigninRequestDto, @Res({ passthrough: true }) res: Response): Promise<ResponseDto<SigninResponseDto>> {
@@ -53,6 +50,7 @@ export class AuthController {
             '웹: 서버에서 쿠키에 저장된 리프레시 토큰 사용 / 앱: 헤더에 리프레시 토큰을 담아서 전달하고, 서버에서 헤더를 파싱하여 사용'
     })
     @ApiNoContentResponse({ description: '로그아웃 성공' })
+    @ApiExceptionResponse(AUTH_ERROR.MISSING_REFRESH_TOKEN)
     @HttpCode(HttpStatus.NO_CONTENT)
     @Delete('signout')
     async signout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
@@ -67,6 +65,7 @@ export class AuthController {
             '웹: 서버에서 쿠키에 저장된 리프레시 토큰 사용 / 앱: 헤더에 리프레시 토큰을 담아서 전달하고, 서버에서 헤더를 파싱하여 사용'
     })
     @ApiOkBaseResponse({ type: RefreshTokenResponseDto })
+    @ApiExceptionResponse([USER_ERROR.NOT_FOUND, AUTH_ERROR.MISSING_REFRESH_TOKEN, AUTH_ERROR.INVALID_REFRESH_TOKEN])
     @UseGuards(JwtRefreshGuard)
     @Public()
     @Post('token/refresh')
@@ -83,6 +82,7 @@ export class AuthController {
     })
     @ApiBody({ type: PasswordResetInitRequestDto })
     @ApiCreatedResponse({ description: '검증 코드 발급 성공' })
+    @ApiExceptionResponse(USER_ERROR.NOT_FOUND)
     @HttpCode(HttpStatus.CREATED)
     @Public()
     @Post('password-reset/request')
@@ -96,7 +96,12 @@ export class AuthController {
     })
     @ApiBody({ type: PasswordResetVerifyRequestDto })
     @ApiOkBaseResponse({ type: PasswordResetVerifyResponseDto })
-    @HttpCode(HttpStatus.CREATED)
+    @ApiExceptionResponse([
+        AUTH_ERROR.VERIFICATION_CODE_INVALID,
+        AUTH_ERROR.VERIFICATION_CODE_EXPIRED,
+        AUTH_ERROR.VERIFICATION_CODE_MAX_ATTEMPTS_REACHED
+    ])
+    @HttpCode(HttpStatus.OK)
     @Public()
     @Post('password-reset/verify')
     async verifyCode(@Body() reqDto: PasswordResetVerifyRequestDto): Promise<ResponseDto<PasswordResetVerifyResponseDto>> {
@@ -109,6 +114,7 @@ export class AuthController {
     })
     @ApiBody({ type: PasswordResetConfirmRequestDto })
     @ApiNoContentResponse({ description: '비밀번호 재설정 성공' })
+    @ApiExceptionResponse([AUTH_ERROR.INVALID_RESET_TOKEN, USER_ERROR.NOT_FOUND])
     @HttpCode(HttpStatus.NO_CONTENT)
     @Public()
     @Patch('password-reset')

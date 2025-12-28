@@ -1,7 +1,7 @@
-import { UserDto } from 'apps/user/src/v1/user/dto/user.dto'
 import { ApiProperty } from '@nestjs/swagger'
 import { Expose } from 'class-transformer'
 import { IsNotEmpty, IsString } from 'class-validator'
+import { UserDto } from './user.dto'
 
 export class UserCreateDto extends UserDto {
     @ApiProperty({ required: true, description: '비밀번호', example: 'user1234!@' })

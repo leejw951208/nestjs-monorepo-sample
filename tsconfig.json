@@ -22,10 +22,8 @@
         "strictBindCallApply": false,
         "noFallthroughCasesInSwitch": false,
         "paths": {
-            "@libs/common/*": ["libs/common/src/*"],
-            "@libs/models/*": ["libs/models/src/*"],
-            "@libs/prisma/*": ["libs/prisma/src/*"]
-            // "@libs/prisma/generated/*": ["libs/prisma/config/generated/*"]
+            "@libs/common": ["libs/common/src/index.ts"],
+            "@libs/prisma": ["libs/prisma/src/index.ts"]
         }
     }
 }

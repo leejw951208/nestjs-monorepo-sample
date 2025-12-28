@@ -1,5 +1,5 @@
-import { CursorRequestDto } from '@libs/common/dto/pagination-request.dto'
-import { NotificationType } from '@libs/prisma/index'
+import { CursorRequestDto } from '@libs/common'
+import { NotificationType } from '@libs/prisma'
 import { ApiProperty } from '@nestjs/swagger'
 import { Transform } from 'class-transformer'
 import { IsBoolean, IsEnum, IsOptional } from 'class-validator'

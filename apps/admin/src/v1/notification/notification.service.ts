@@ -1,5 +1,5 @@
-import { OffsetResponseDto } from '@libs/common/dto/pagination-response.dto'
-import { Inject, Injectable } from '@nestjs/common'
+import { OffsetResponseDto } from '@libs/common'
+import { Injectable } from '@nestjs/common'
 import { plainToInstance } from 'class-transformer'
 import { CreateNotificationRequestDto } from './dto/notification-create-request.dto'
 import { NotificationPaginationRequestDto } from './dto/notification-pagination-request.dto'
@@ -8,20 +8,19 @@ import { NotificationRepository } from './notification.repository'
 
 @Injectable()
 export class NotificationService {
-    constructor(private readonly notificationQuery: NotificationRepository) {}
+    constructor(private readonly repository: NotificationRepository) {}
 
-    async createNotification(adminId: number, dto: CreateNotificationRequestDto): Promise<void> {
-        await this.notificationQuery.createNotification({
+    async createNotification(dto: CreateNotificationRequestDto): Promise<void> {
+        await this.repository.create({
+            userId: dto.userId,
             title: dto.title,
             content: dto.content,
-            type: dto.type,
-            createdBy: adminId,
-            ...(dto.userId && { user: { connect: { id: dto.userId } } })
+            type: dto.type
         })
     }
 
     async getNotifications(dto: NotificationPaginationRequestDto): Promise<OffsetResponseDto<NotificationResponseDto>> {
-        const { totalCount, items } = await this.notificationQuery.getNotifications({
+        const { totalCount, items } = await this.repository.findNotificationsOffset({
             pagination: { page: dto.page, size: dto.size, order: dto.order },
             searchCondition: {
                 userId: dto.userId,
@@ -29,8 +28,10 @@ export class NotificationService {
                 keyword: dto.keyword
             }
         })
-        const data = plainToInstance(NotificationResponseDto, items, { excludeExtraneousValues: true })
 
-        return new OffsetResponseDto(data, { page: dto.page, totalCount })
+        return new OffsetResponseDto(
+            plainToInstance(NotificationResponseDto, items, { excludeExtraneousValues: true }),
+            { page: dto.page, totalCount }
+        )
     }
 }
