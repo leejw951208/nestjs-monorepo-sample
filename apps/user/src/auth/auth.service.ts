@@ -19,8 +19,14 @@ import { SignupRequestDto } from './dto/signup-request.dto'
 export class AuthService {
     // 비밀번호 재설정 토큰 캐시 키 접두사
     private readonly PASSWORD_RESET_TOKEN_PREFIX = 'password-reset:token:'
-    // 비밀번호 재설정 토큰 유효 시간 (밀리초)
-    private readonly PASSWORD_RESET_TOKEN_TTL = 300000 // 5분
+    // 비밀번호 재설정 요청 횟수 제한 캐시 키 접두사
+    private readonly PASSWORD_RESET_RATE_PREFIX = 'password-reset:rate:'
+    // 비밀번호 재설정 토큰 유효 시간 (초)
+    private readonly PASSWORD_RESET_TOKEN_TTL = 300 // 5분
+    // 비밀번호 재설정 요청 횟수 제한
+    private readonly PASSWORD_RESET_RATE_LIMIT = 5
+    // 비밀번호 재설정 요청 횟수 제한 윈도우 (초)
+    private readonly PASSWORD_RESET_RATE_WINDOW = 300 // 5분
 
     constructor(
         private readonly userRepository: UserRepository,
@@ -176,6 +182,17 @@ export class AuthService {
      */
     async requestPasswordReset(reqDto: PasswordResetInitRequestDto): Promise<{ resetToken: string }> {
         const normalizedEmail = reqDto.email.trim().toLowerCase()
+
+        // 이메일 기준 요청 횟수 제한
+        const rateKey = `${this.PASSWORD_RESET_RATE_PREFIX}${normalizedEmail}`
+        const count = await this.redis.incr(rateKey)
+        if (count === 1) {
+            await this.redis.expire(rateKey, this.PASSWORD_RESET_RATE_WINDOW)
+        }
+        if (count > this.PASSWORD_RESET_RATE_LIMIT) {
+            throw new BaseException(AUTH_ERROR.RATE_LIMIT_EXCEEDED, this.constructor.name)
+        }
+
         const user = await this.userRepository.findByEmailAndPhone(normalizedEmail, reqDto.phone)
 
         if (!user) {
@@ -183,7 +200,7 @@ export class AuthService {
         }
 
         const resetToken = randomBytes(16).toString('hex')
-        await this.redis.set(`${this.PASSWORD_RESET_TOKEN_PREFIX}${resetToken}`, String(user.id), 'PX', this.PASSWORD_RESET_TOKEN_TTL)
+        await this.redis.set(`${this.PASSWORD_RESET_TOKEN_PREFIX}${resetToken}`, String(user.id), 'EX', this.PASSWORD_RESET_TOKEN_TTL)
 
         return { resetToken }
     }

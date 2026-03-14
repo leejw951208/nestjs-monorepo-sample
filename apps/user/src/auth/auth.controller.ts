@@ -1,6 +1,18 @@
-import { ApiExceptionResponse, ApiOkBaseResponse, AUTH_ERROR, BaseException, JwtRefreshGuard, Public, ResponseDto, USER_ERROR } from '@libs/common'
+import {
+    ApiExceptionResponse,
+    ApiOkBaseResponse,
+    AUTH_ERROR,
+    BaseException,
+    CustomThrottlerGuard,
+    JwtRefreshGuard,
+    Public,
+    ResponseDto,
+    THROTTLER_ERROR,
+    USER_ERROR
+} from '@libs/common'
 import { Body, Controller, Delete, HttpCode, HttpStatus, Patch, Post, Req, Res, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { Throttle } from '@nestjs/throttler'
 import type { Request, Response } from 'express'
 import { AuthService } from './auth.service'
 import { PasswordResetConfirmRequestDto } from './dto/password-reset-confirm.request.dto'
@@ -13,6 +25,7 @@ import { SignupRequestDto } from './dto/signup-request.dto'
 
 @ApiTags('auth')
 @ApiBearerAuth('JWT-Auth')
+@UseGuards(CustomThrottlerGuard)
 @Controller({ path: 'auth', version: '1' })
 export class AuthController {
     constructor(private readonly service: AuthService) {}
@@ -81,7 +94,8 @@ export class AuthController {
     })
     @ApiBody({ type: PasswordResetInitRequestDto })
     @ApiOkBaseResponse({ type: PasswordResetInitResponseDto })
-    @ApiExceptionResponse(USER_ERROR.VERIFICATION_FAILED)
+    @ApiExceptionResponse([USER_ERROR.VERIFICATION_FAILED, THROTTLER_ERROR.RATE_LIMIT_EXCEEDED])
+    @Throttle({ ip: { limit: 5, ttl: 300000 } })
     @Public()
     @Post('password-reset/request')
     async requestPasswordReset(@Body() reqDto: PasswordResetInitRequestDto): Promise<ResponseDto<PasswordResetInitResponseDto>> {
