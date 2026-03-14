@@ -5,7 +5,6 @@ import { UserRepository } from '../user/user.repository'
 import { AuthService } from './auth.service'
 import { PasswordResetConfirmRequestDto } from './dto/password-reset-confirm.request.dto'
 import { PasswordResetInitRequestDto } from './dto/password-reset-init.request.dto'
-import { PasswordResetVerifyRequestDto } from './dto/password-reset-verify.request.dto'
 
 const mockCommonEnv = {
     nodeEnv: 'test',
@@ -28,6 +27,7 @@ describe('AuthService', () => {
         existsByEmail: jest.fn(),
         create: jest.fn(),
         findByEmail: jest.fn(),
+        findByEmailAndPhone: jest.fn(),
         findById: jest.fn(),
         updatePassword: jest.fn()
     }
@@ -35,7 +35,9 @@ describe('AuthService', () => {
     const mockRedis = {
         get: jest.fn(),
         set: jest.fn(),
-        del: jest.fn()
+        del: jest.fn(),
+        incr: jest.fn(),
+        expire: jest.fn()
     }
 
     const mockCryptoService = {
@@ -248,76 +250,40 @@ describe('AuthService', () => {
         })
     })
 
-    describe('issueCode', () => {
-        it('should successfully issue verification code', async () => {
-            const reqDto: PasswordResetInitRequestDto = { email: 'test@example.com' }
-            const user = { id: 1, email: 'test@example.com', name: 'Test User' }
+    describe('requestPasswordReset', () => {
+        it('should successfully return reset token when email and phone match', async () => {
+            const reqDto: PasswordResetInitRequestDto = { email: 'test@example.com', phone: '01012345678' }
+            const user = { id: 1, email: 'test@example.com', phone: '01012345678' }
 
-            mockUserRepository.findByEmail.mockResolvedValue(user)
+            mockRedis.incr.mockResolvedValue(1)
+            mockRedis.expire.mockResolvedValue(1)
+            mockUserRepository.findByEmailAndPhone.mockResolvedValue(user)
             mockRedis.set.mockResolvedValue('OK')
 
-            await service.issueCode(reqDto)
-
-            expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('test@example.com')
-            expect(mockRedis.set).toHaveBeenCalled()
-        })
-
-        it('should not throw exception if user not found (email enumeration prevention)', async () => {
-            const reqDto: PasswordResetInitRequestDto = { email: 'nonexistent@example.com' }
-
-            mockUserRepository.findByEmail.mockResolvedValue(null)
-
-            await expect(service.issueCode(reqDto)).resolves.not.toThrow()
-        })
-    })
-
-    describe('verifyCode', () => {
-        const CACHE_KEY_CODE_PREFIX = 'password-reset:code:'
-
-        it('should successfully verify code and return reset token', async () => {
-            const reqDto: PasswordResetVerifyRequestDto = { email: 'test@example.com', otp: '123456' }
-            const user = { id: 1, email: 'test@example.com' }
-            const codeData = { code: '123456', expiresAt: Date.now() + 300000, attempts: 0 }
-            const codeKey = `${CACHE_KEY_CODE_PREFIX}${user.id}`
-
-            mockUserRepository.findByEmail.mockResolvedValue(user)
-            mockRedis.get.mockImplementation((key: string) => {
-                if (key === codeKey) return Promise.resolve(JSON.stringify(codeData))
-                return Promise.resolve(null)
-            })
-            mockRedis.del.mockResolvedValue(1)
-            mockRedis.set.mockResolvedValue('OK')
-
-            const result = await service.verifyCode(reqDto)
+            const result = await service.requestPasswordReset(reqDto)
 
             expect(result.resetToken).toBeDefined()
             expect(typeof result.resetToken).toBe('string')
+            expect(mockUserRepository.findByEmailAndPhone).toHaveBeenCalledWith('test@example.com', '01012345678')
+            expect(mockRedis.set).toHaveBeenCalled()
         })
 
-        it('should throw exception if code expired', async () => {
-            const reqDto: PasswordResetVerifyRequestDto = { email: 'test@example.com', otp: '123456' }
-            const user = { id: 1, email: 'test@example.com' }
+        it('should throw exception if user not found', async () => {
+            const reqDto: PasswordResetInitRequestDto = { email: 'nonexistent@example.com', phone: '01012345678' }
 
-            mockUserRepository.findByEmail.mockResolvedValue(user)
-            mockRedis.get.mockResolvedValue(null)
+            mockRedis.incr.mockResolvedValue(1)
+            mockRedis.expire.mockResolvedValue(1)
+            mockUserRepository.findByEmailAndPhone.mockResolvedValue(null)
 
-            await expect(service.verifyCode(reqDto)).rejects.toThrow(BaseException)
+            await expect(service.requestPasswordReset(reqDto)).rejects.toThrow(BaseException)
         })
 
-        it('should throw exception if code is invalid', async () => {
-            const reqDto: PasswordResetVerifyRequestDto = { email: 'test@example.com', otp: '999999' }
-            const user = { id: 1, email: 'test@example.com' }
-            const codeData = { code: '123456', expiresAt: Date.now() + 300000, attempts: 0 }
-            const codeKey = `${CACHE_KEY_CODE_PREFIX}${user.id}`
+        it('should throw exception if rate limit exceeded', async () => {
+            const reqDto: PasswordResetInitRequestDto = { email: 'test@example.com', phone: '01012345678' }
 
-            mockUserRepository.findByEmail.mockResolvedValue(user)
-            mockRedis.get.mockImplementation((key: string) => {
-                if (key === codeKey) return Promise.resolve(JSON.stringify(codeData))
-                return Promise.resolve(null)
-            })
-            mockRedis.set.mockResolvedValue('OK')
+            mockRedis.incr.mockResolvedValue(6)
 
-            await expect(service.verifyCode(reqDto)).rejects.toThrow(BaseException)
+            await expect(service.requestPasswordReset(reqDto)).rejects.toThrow(BaseException)
         })
     })
 
