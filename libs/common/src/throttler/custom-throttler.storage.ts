@@ -32,7 +32,11 @@ export class CustomThrottlerStorage implements ThrottlerStorage, OnModuleDestroy
     private readonly keyPrefix = 'throttler'
 
     constructor(private readonly config: ConfigType<typeof commonEnvConfig>) {
-        this.redis = new Redis(this.config.redisUrl)
+        this.redis = new Redis({
+            host: this.config.redisHost,
+            port: this.config.redisPort,
+            password: this.config.redisPassword
+        })
     }
 
     /**

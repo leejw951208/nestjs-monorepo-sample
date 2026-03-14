@@ -4,7 +4,6 @@ import Joi from 'joi'
 export const adminEnvSchema = commonEnvSchema.concat(
     Joi.object({
         APP_NAME: Joi.string().required(),
-        APP_LABEL: Joi.string().required(),
         APP_VERSION: Joi.string().required(),
         API_VERSION: Joi.string().required(),
         PORT: Joi.string().required()

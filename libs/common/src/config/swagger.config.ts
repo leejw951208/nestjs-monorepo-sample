@@ -5,7 +5,7 @@ import { DocumentBuilder, SwaggerDocumentOptions, SwaggerModule } from '@nestjs/
 export function setupSwagger(app: INestApplication, appName?: string): void {
     const config = app.get(ConfigService)
 
-    const title = `${config.get<string>('APP_LABEL')} API Documents`
+    const title = `${config.get<string>('APP_NAME')} API Documents`
     const version = `${config.get<string>('APP_VERSION')}`
     const description = ``
 

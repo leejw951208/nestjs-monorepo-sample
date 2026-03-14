@@ -5,8 +5,7 @@ import type { Request, Response } from 'express'
 import { AuthService } from './auth.service'
 import { PasswordResetConfirmRequestDto } from './dto/password-reset-confirm.request.dto'
 import { PasswordResetInitRequestDto } from './dto/password-reset-init.request.dto'
-import { PasswordResetVerifyRequestDto } from './dto/password-reset-verify.request.dto'
-import { PasswordResetVerifyResponseDto } from './dto/password-reset-verify.response.dto'
+import { PasswordResetInitResponseDto } from './dto/password-reset-init.response.dto'
 import { RefreshTokenResponseDto } from './dto/refresh-token-response.dto'
 import { SigninRequestDto } from './dto/signin-request.dto'
 import { SigninResponseDto } from './dto/signin-response.dto'
@@ -14,7 +13,7 @@ import { SignupRequestDto } from './dto/signup-request.dto'
 
 @ApiTags('auth')
 @ApiBearerAuth('JWT-Auth')
-@Controller({ version: '1' })
+@Controller({ path: 'auth', version: '1' })
 export class AuthController {
     constructor(private readonly service: AuthService) {}
 
@@ -77,35 +76,17 @@ export class AuthController {
     }
 
     @ApiOperation({
-        summary: '비밀번호 재설정 - 검증 코드 발급',
-        description: '비밀번호 재설정을 위한 검증 코드를 이메일로 발급합니다. 검증 코드는 5분간 유효합니다.'
+        summary: '비밀번호 재설정 요청',
+        description: '이메일과 휴대폰번호를 확인하여 비밀번호 재설정 토큰을 발급합니다. 재설정 토큰은 15분간 유효합니다.'
     })
     @ApiBody({ type: PasswordResetInitRequestDto })
-    @ApiCreatedResponse({ description: '검증 코드 발급 성공' })
-    @ApiExceptionResponse(USER_ERROR.NOT_FOUND)
-    @HttpCode(HttpStatus.CREATED)
+    @ApiOkBaseResponse({ type: PasswordResetInitResponseDto })
+    @ApiExceptionResponse(USER_ERROR.VERIFICATION_FAILED)
     @Public()
     @Post('password-reset/request')
-    async requestCode(@Body() reqDto: PasswordResetInitRequestDto): Promise<void> {
-        await this.service.issueCode(reqDto)
-    }
-
-    @ApiOperation({
-        summary: '비밀번호 재설정 - 검증 코드 확인 및 재설정 토큰 발급',
-        description: '검증 코드를 확인하고 비밀번호 재설정 토큰을 발급합니다. 재설정 토큰은 15분간 유효합니다.'
-    })
-    @ApiBody({ type: PasswordResetVerifyRequestDto })
-    @ApiOkBaseResponse({ type: PasswordResetVerifyResponseDto })
-    @ApiExceptionResponse([
-        AUTH_ERROR.VERIFICATION_CODE_INVALID,
-        AUTH_ERROR.VERIFICATION_CODE_EXPIRED,
-        AUTH_ERROR.VERIFICATION_CODE_MAX_ATTEMPTS_REACHED
-    ])
-    @HttpCode(HttpStatus.OK)
-    @Public()
-    @Post('password-reset/verify')
-    async verifyCode(@Body() reqDto: PasswordResetVerifyRequestDto): Promise<ResponseDto<PasswordResetVerifyResponseDto>> {
-        return new ResponseDto(await this.service.verifyCode(reqDto))
+    async requestPasswordReset(@Body() reqDto: PasswordResetInitRequestDto): Promise<ResponseDto<PasswordResetInitResponseDto>> {
+        const result = await this.service.requestPasswordReset(reqDto)
+        return new ResponseDto(result)
     }
 
     @ApiOperation({

@@ -34,6 +34,12 @@ export class UserRepository {
         })
     }
 
+    async findByEmailAndPhone(email: string, phone: string): Promise<User | null> {
+        return this.prisma.user.findFirst({
+            where: { email, phone, isDeleted: false }
+        })
+    }
+
     async existsByEmail(email: string): Promise<boolean> {
         const user = await this.prisma.user.findFirst({
             where: { email, isDeleted: false },

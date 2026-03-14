@@ -1,9 +1,9 @@
 import { ApiAuthGuard, ApiExceptionResponse, ApiOkBaseResponse, ApiOkOffsetPaginationResponse, OffsetResponseDto, Permission, PermissionGuard, USER_ERROR } from '@libs/common'
-import { UserStatus } from '@libs/prisma'
-import { Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common'
-import { ApiNoContentResponse, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger'
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common'
+import { ApiBody, ApiNoContentResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { AdminUserPaginationRequestDto } from './dto/admin-user-pagination-request.dto'
 import { AdminUserResponseDto } from './dto/admin-user-response.dto'
+import { AdminUserStatusUpdateDto } from './dto/admin-user-status-update.dto'
 import { AdminUserService } from './user.service'
 
 @ApiTags('users')
@@ -34,15 +34,15 @@ export class AdminUserController {
 
     @ApiOperation({ summary: '사용자 상태 변경' })
     @ApiParam({ name: 'id', type: Number, description: '사용자 ID' })
-    @ApiQuery({ name: 'status', enum: UserStatus, description: '변경할 상태' })
+    @ApiBody({ type: AdminUserStatusUpdateDto })
     @ApiNoContentResponse({ description: '상태 변경 성공' })
     @ApiExceptionResponse(USER_ERROR.NOT_FOUND)
     @Permission('user', 'update')
     @UseGuards(PermissionGuard)
     @HttpCode(HttpStatus.NO_CONTENT)
     @Patch(':id/status')
-    async updateUserStatus(@Param('id', ParseIntPipe) id: number, @Query('status') status: UserStatus): Promise<void> {
-        await this.service.updateUserStatus(id, status)
+    async updateUserStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: AdminUserStatusUpdateDto): Promise<void> {
+        await this.service.updateUserStatus(id, dto.status)
     }
 
     @ApiOperation({ summary: '사용자 삭제 (Soft Delete)' })

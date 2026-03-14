@@ -105,35 +105,10 @@ export const AUTH_ERROR: {
         code: 'AUTH_ERROR_008',
         message: '리소스 접근 권한이 없습니다.'
     },
-    VERIFICATION_CODE_INVALID: {
-        status: 400,
-        code: 'AUTH_ERROR_009',
-        message: '인증 코드가 일치하지 않습니다.'
-    },
-    VERIFICATION_CODE_EXPIRED: {
-        status: 400,
-        code: 'AUTH_ERROR_010',
-        message: '인증 코드가 만료되었습니다.'
-    },
-    RESET_TOKEN_INVALID: {
-        status: 400,
-        code: 'AUTH_ERROR_011',
-        message: '비밀번호 재설정 토큰이 유효하지 않습니다.'
-    },
-    RESET_TOKEN_EXPIRED: {
-        status: 400,
-        code: 'AUTH_ERROR_012',
-        message: '비밀번호 재설정 토큰이 만료되었습니다.'
-    },
     INVALID_RESET_TOKEN: {
         status: 400,
-        code: 'AUTH_ERROR_013',
+        code: 'AUTH_ERROR_009',
         message: '유효하지 않은 비밀번호 재설정 토큰입니다.'
-    },
-    VERIFICATION_CODE_MAX_ATTEMPTS_REACHED: {
-        status: 429,
-        code: 'AUTH_ERROR_014',
-        message: '인증 코드 입력 횟수를 초과했습니다. 새로운 인증 코드를 요청해주세요.'
     },
     RATE_LIMIT_EXCEEDED: {
         status: 429,

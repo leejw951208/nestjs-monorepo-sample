@@ -13,17 +13,8 @@ enum Owner {
     @@schema("public")
 }
 
-enum Platform {
-    WEB
-    ANDROID
-    IOS
-
-    @@schema("public")
-}
-
 enum TokenType {
     JWT
-    FCM
 
     @@schema("public")
 }

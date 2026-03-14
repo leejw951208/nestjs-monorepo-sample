@@ -13,6 +13,7 @@ import {
     POST_ERROR,
     type JwtPayload
 } from '@libs/common'
+
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBody, ApiCreatedResponse, ApiNoContentResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { PostCreateDto } from './dto/post-create.dto'
@@ -28,25 +29,6 @@ import { PostService } from './post.service'
 export class PostController {
     constructor(private readonly service: PostService) {}
 
-    @ApiOperation({ summary: '내 게시글 조회' })
-    @ApiParam({ name: 'id', type: Number, description: '게시글 ID' })
-    @ApiOkBaseResponse({ type: PostResponseDto })
-    @ApiExceptionResponse(POST_ERROR.NOT_FOUND)
-    @Get(':id')
-    async getPost(@CurrentUser() payload: JwtPayload, @Param('id', ParseIntPipe) id: number): Promise<PostResponseDto> {
-        return await this.service.getPost(payload.id, id)
-    }
-
-    @ApiOperation({ summary: '내 게시글 목록 조회 (Offset Pagination)' })
-    @ApiOkOffsetPaginationResponse({ type: PostResponseDto })
-    @Get('me/offset')
-    async getMyPostsOffset(
-        @CurrentUser() payload: JwtPayload,
-        @Query() searchCondition: PostOffsetRequestDto
-    ): Promise<OffsetResponseDto<PostResponseDto>> {
-        return await this.service.getPostsOffset(searchCondition, payload.id)
-    }
-
     @ApiOperation({ summary: '전체 게시글 목록 조회 (Offset Pagination)' })
     @ApiOkOffsetPaginationResponse({ type: PostResponseDto })
     @Get('offset')
@@ -54,21 +36,20 @@ export class PostController {
         return await this.service.getPostsOffset(searchCondition)
     }
 
-    @ApiOperation({ summary: '내 게시글 목록 조회 (Cursor Pagination)' })
-    @ApiOkCursorPaginationResponse({ type: PostResponseDto })
-    @Get('me/cursor')
-    async getMyPostsCursor(
-        @CurrentUser() payload: JwtPayload,
-        @Query() searchCondition: PostCursorRequestDto
-    ): Promise<CursorResponseDto<PostResponseDto>> {
-        return await this.service.getPostsCursor(searchCondition, payload.id)
-    }
-
     @ApiOperation({ summary: '전체 게시글 목록 조회 (Cursor Pagination)' })
     @ApiOkCursorPaginationResponse({ type: PostResponseDto })
     @Get('cursor')
     async getPostsCursor(@Query() searchCondition: PostCursorRequestDto): Promise<CursorResponseDto<PostResponseDto>> {
         return await this.service.getPostsCursor(searchCondition)
+    }
+
+    @ApiOperation({ summary: '게시글 상세 조회' })
+    @ApiParam({ name: 'id', type: Number, description: '게시글 ID' })
+    @ApiOkBaseResponse({ type: PostResponseDto })
+    @ApiExceptionResponse(POST_ERROR.NOT_FOUND)
+    @Get(':id')
+    async getPost(@CurrentUser() payload: JwtPayload, @Param('id', ParseIntPipe) id: number): Promise<PostResponseDto> {
+        return await this.service.getPost(payload.id, id)
     }
 
     @ApiOperation({ summary: '게시글 작성' })

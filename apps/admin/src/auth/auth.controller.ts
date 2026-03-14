@@ -8,7 +8,7 @@ import { AdminSigninResponseDto } from './dto/admin-signin-response.dto'
 
 @ApiTags('auth')
 @ApiBearerAuth('JWT-Auth')
-@Controller({ version: '1' })
+@Controller({ path: 'auth', version: '1' })
 export class AdminAuthController {
     constructor(private readonly service: AdminAuthService) {}
 

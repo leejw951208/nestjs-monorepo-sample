@@ -1,9 +1,9 @@
 import { ApiAuthGuard, ApiExceptionResponse, ApiOkBaseResponse, ApiOkOffsetPaginationResponse, OffsetResponseDto, Permission, PermissionGuard, POST_ERROR } from '@libs/common'
-import { PostStatus } from '@libs/prisma'
-import { Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common'
-import { ApiNoContentResponse, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger'
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common'
+import { ApiBody, ApiNoContentResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger'
 import { AdminPostPaginationRequestDto } from './dto/admin-post-pagination-request.dto'
 import { AdminPostResponseDto } from './dto/admin-post-response.dto'
+import { AdminPostStatusUpdateDto } from './dto/admin-post-status-update.dto'
 import { AdminPostService } from './post.service'
 
 @ApiTags('posts')
@@ -34,15 +34,15 @@ export class AdminPostController {
 
     @ApiOperation({ summary: '게시글 상태 변경 (숨김/발행)' })
     @ApiParam({ name: 'id', type: Number, description: '게시글 ID' })
-    @ApiQuery({ name: 'status', enum: PostStatus, description: '변경할 상태' })
+    @ApiBody({ type: AdminPostStatusUpdateDto })
     @ApiNoContentResponse({ description: '상태 변경 성공' })
     @ApiExceptionResponse(POST_ERROR.NOT_FOUND)
     @Permission('post', 'update')
     @UseGuards(PermissionGuard)
     @HttpCode(HttpStatus.NO_CONTENT)
     @Patch(':id/status')
-    async updatePostStatus(@Param('id', ParseIntPipe) id: number, @Query('status') status: PostStatus): Promise<void> {
-        await this.service.updatePostStatus(id, status)
+    async updatePostStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: AdminPostStatusUpdateDto): Promise<void> {
+        await this.service.updatePostStatus(id, dto.status)
     }
 
     @ApiOperation({ summary: '게시글 삭제 (Soft Delete)' })
