@@ -21,7 +21,8 @@ async function bootstrap() {
     app.setGlobalPrefix('api')
     app.enableVersioning({
         type: VersioningType.URI,
-        prefix: 'v'
+        prefix: 'v',
+        defaultVersion: '1'
     })
 
     app.enableShutdownHooks()

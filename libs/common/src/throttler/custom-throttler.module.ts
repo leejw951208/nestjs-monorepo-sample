@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 import { ThrottlerModule } from '@nestjs/throttler'
-import { commonEnvConfig } from '../configs'
+import { commonEnvConfig } from '../config'
 import { CustomThrottlerStorage } from './custom-throttler.storage'
 
 @Module({

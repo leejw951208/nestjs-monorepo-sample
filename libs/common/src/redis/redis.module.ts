@@ -2,7 +2,7 @@ import { DynamicModule, Logger, Module, Provider } from '@nestjs/common'
 import { ConfigType } from '@nestjs/config'
 import Redis from 'ioredis'
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston'
-import { commonEnvConfig } from '../configs'
+import { commonEnvConfig } from '../config'
 
 export const REDIS_CLIENT = 'REDIS_CLIENT'
 

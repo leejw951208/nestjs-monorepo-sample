@@ -18,12 +18,11 @@ async function bootstrap() {
     app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true, forbidUnknownValues: true }))
 
     // API 전역 설정
-    const apiVersion = config.get<string>('admin.apiVersion') ?? 'v1'
     app.setGlobalPrefix('api')
     app.enableVersioning({
         type: VersioningType.URI,
-        prefix: apiVersion.split('')[0] ?? 'v',
-        defaultVersion: apiVersion.split('')[1] ?? '1'
+        prefix: 'v',
+        defaultVersion: '1'
     })
 
     app.enableShutdownHooks()

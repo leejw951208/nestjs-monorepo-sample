@@ -12,11 +12,13 @@ export default async function seed(prisma: PrismaClient) {
         // Post 관련
         { scope: 'post', action: 'create' },
         { scope: 'post', action: 'read' },
+        { scope: 'post', action: 'write' },
         { scope: 'post', action: 'update' },
         { scope: 'post', action: 'delete' },
         // Notification 관련
         { scope: 'notification', action: 'create' },
         { scope: 'notification', action: 'read' },
+        { scope: 'notification', action: 'write' },
         { scope: 'notification', action: 'update' },
         { scope: 'notification', action: 'delete' },
         // Admin 관련
@@ -74,6 +76,26 @@ export default async function seed(prisma: PrismaClient) {
                 update: {},
                 create: {
                     roleId: adminRole.id,
+                    permissionId: permission.id,
+                    createdBy: 0
+                }
+            })
+        }
+    }
+
+    // USER 역할은 post 권한
+    const userRole = await prisma.role.findFirst({ where: { name: 'USER' } })
+    const userPermissions = await prisma.permission.findMany({
+        where: { scope: 'post' }
+    })
+
+    if (userRole) {
+        for (const permission of userPermissions) {
+            await prisma.rolePermission.upsert({
+                where: { roleId_permissionId: { roleId: userRole.id, permissionId: permission.id } },
+                update: {},
+                create: {
+                    roleId: userRole.id,
                     permissionId: permission.id,
                     createdBy: 0
                 }

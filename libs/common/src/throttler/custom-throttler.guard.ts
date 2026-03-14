@@ -1,6 +1,6 @@
 import { ExecutionContext, Injectable } from '@nestjs/common'
 import { ThrottlerGuard, ThrottlerRequest } from '@nestjs/throttler'
-import { BaseException, THROTTLER_ERROR } from '../exceptions'
+import { BaseException, THROTTLER_ERROR } from '../exception'
 
 /**
  * 커스텀 Rate Limiting 가드

@@ -1,4 +1,4 @@
-import { CommonModule, commonEnvConfig, CustomClsMiddleware, JwtAccessGuard, LoggerMiddleware, winstonModuleAsyncOptions } from '@libs/common'
+import { CommonModule, commonEnvConfig, CustomClsMiddleware, HealthModule, JwtAccessGuard, LoggerMiddleware, winstonModuleAsyncOptions } from '@libs/common'
 import { PrismaModule } from '@libs/prisma'
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
@@ -8,8 +8,10 @@ import { ClsModule } from 'nestjs-cls'
 import * as path from 'path'
 import adminEnvConfig from './configs/admin-env.config'
 import { validateAdminEnv } from './configs/admin-env.validator'
-import { NotificationModule } from './v1/notification/notification.module'
-import { AuthModule } from 'apps/user/src/v1/auth/auth.module'
+import { AdminAuthModule } from './auth/auth.module'
+import { NotificationModule } from './notification/notification.module'
+import { AdminPostModule } from './post/post.module'
+import { AdminUserModule } from './user/user.module'
 
 @Module({
     imports: [
@@ -35,8 +37,11 @@ import { AuthModule } from 'apps/user/src/v1/auth/auth.module'
         WinstonModule.forRootAsync(winstonModuleAsyncOptions),
         CommonModule,
         PrismaModule,
-        AuthModule,
-        NotificationModule
+        AdminAuthModule,
+        AdminUserModule,
+        AdminPostModule,
+        NotificationModule,
+        HealthModule
     ],
     providers: [{ provide: APP_GUARD, useClass: JwtAccessGuard }]
 })

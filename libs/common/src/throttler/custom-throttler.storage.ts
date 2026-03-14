@@ -2,7 +2,7 @@ import { Injectable, OnModuleDestroy } from '@nestjs/common'
 import { type ConfigType } from '@nestjs/config'
 import { ThrottlerStorage } from '@nestjs/throttler'
 import Redis from 'ioredis'
-import { commonEnvConfig } from '../configs'
+import { commonEnvConfig } from '../config'
 
 /**
  * Rate Limiting 결과 레코드
