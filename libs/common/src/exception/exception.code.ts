@@ -171,7 +171,7 @@ export const THROTTLER_ERROR: {
     [key in ThrottlerErrorType]: ExceptionCodeData
 } = {
     RATE_LIMIT_EXCEEDED: {
-        status: 400,
+        status: 429,
         code: 'THROTTLER_ERROR_001',
         message: '요청 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.'
     }

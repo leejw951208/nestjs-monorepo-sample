@@ -236,9 +236,11 @@ export class AuthService {
         // 4. 새로운 비밀번호 해싱
         const hashedPassword = await this.cryptoService.hash(newPassword)
 
-        // 5. 캐시에서 재설정 토큰 삭제 및 사용자 비밀번호 업데이트
-        await this.redis.del(tokenKey)
+        // 5. 사용자 비밀번호 업데이트 후 재설정 토큰 삭제
+        // DB 변경을 먼저 수행해야 redis.del 성공 후 updatePassword 실패 시
+        // 토큰이 소멸되어 재시도가 불가능해지는 상황을 방지할 수 있음
         await this.userRepository.updatePassword(user.id, hashedPassword)
+        await this.redis.del(tokenKey)
 
         // 6. 해당 사용자의 모든 리프레시 토큰 삭제 (보안 강화)
         await this.tokenService.deleteAllRefreshTokens(user.id, Owner.USER)

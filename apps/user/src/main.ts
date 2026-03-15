@@ -27,6 +27,10 @@ async function bootstrap() {
 
     app.enableShutdownHooks()
 
+    // 리버스 프록시(nginx 등) 뒤에서 클라이언트 실제 IP를 신뢰하도록 설정
+    // X-Forwarded-For 헤더를 1단계 프록시까지만 신뢰하여 IP 스푸핑 방지
+    app.getHttpAdapter().getInstance().set('trust proxy', 1)
+
     app.use(cookieParser())
 
     // 스웨거 설정

@@ -54,7 +54,9 @@ export class TokenService {
         })
 
         if (payload.type !== type || payload.issuer !== 'monorepo') {
-            throw new BaseException(AUTH_ERROR.INVALID_REFRESH_TOKEN, this.constructor.name)
+            // 검증 대상 토큰 타입에 맞는 에러 코드 반환
+            const invalidError = type === 'ac' ? AUTH_ERROR.INVALID_ACCESS_TOKEN : AUTH_ERROR.INVALID_REFRESH_TOKEN
+            throw new BaseException(invalidError, this.constructor.name)
         }
 
         return payload
@@ -86,12 +88,12 @@ export class TokenService {
 
     async deleteAllRefreshTokens(ownerId: number, owner: Owner): Promise<void> {
         const tokensKey = `${owner}:${ownerId}:tokens`
-        const jtisJson = await this.redis.get(tokensKey)
-        const jtis = jtisJson ? (JSON.parse(jtisJson) as string[]) : null
+        // SMEMBERS: Redis Set에서 모든 JTI를 원자적으로 조회
+        const jtis = await this.redis.smembers(tokensKey)
 
         const tasks: Promise<any>[] = [this.deleteAllRefreshTokensInDB(ownerId, owner), this.redis.del(tokensKey)]
 
-        if (jtis && jtis.length > 0) {
+        if (jtis.length > 0) {
             const deleteKeys = jtis.map((jti) => this.redis.del(`rt:${owner}:${ownerId}:${jti}`))
             tasks.push(...deleteKeys)
         }
@@ -144,26 +146,17 @@ export class TokenService {
 
     private async addUserTokenToRedisList(ownerId: number, owner: Owner, jti: string): Promise<void> {
         const tokensKey = `${owner}:${ownerId}:tokens`
-        const jtisJson = await this.redis.get(tokensKey)
-        const jtis = jtisJson ? (JSON.parse(jtisJson) as string[]) : []
-        if (!jtis.includes(jti)) {
-            jtis.push(jti)
-            await this.redis.set(tokensKey, JSON.stringify(jtis), 'PX', this.config.jwtRefreshTokenTtl)
+        // SADD: 동시 요청 시에도 JTI가 유실되지 않도록 원자적으로 Set에 추가
+        const added = await this.redis.sadd(tokensKey, jti)
+        if (added > 0) {
+            // 새로 추가된 경우에만 TTL 갱신 (리프레시 토큰 만료 주기와 동일하게 설정)
+            await this.redis.pexpire(tokensKey, this.config.jwtRefreshTokenTtl)
         }
     }
 
     private async removeUserTokenFromRedisList(ownerId: number, owner: Owner, jti: string): Promise<void> {
         const tokensKey = `${owner}:${ownerId}:tokens`
-        const jtisJson = await this.redis.get(tokensKey)
-        const jtis = jtisJson ? (JSON.parse(jtisJson) as string[]) : null
-
-        if (!jtis) return
-
-        const updatedJtis = jtis.filter((item) => item !== jti)
-        if (updatedJtis.length > 0) {
-            await this.redis.set(tokensKey, JSON.stringify(updatedJtis), 'PX', this.config.jwtRefreshTokenTtl)
-        } else {
-            await this.redis.del(tokensKey)
-        }
+        // SREM: 원자적으로 특정 JTI를 Set에서 제거
+        await this.redis.srem(tokensKey, jti)
     }
 }

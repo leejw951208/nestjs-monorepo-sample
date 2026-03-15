@@ -61,16 +61,11 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
 
     /**
      * 클라이언트 실제 IP 추출
-     * - 프록시/로드밸런서 환경: X-Forwarded-For 헤더에서 첫 번째 IP
-     * - 직접 연결: req.ip 사용
+     * - main.ts의 trust proxy 설정 덕분에 Express가 X-Forwarded-For를 검증하고
+     *   req.ip에 실제 클라이언트 IP를 담아줌 (헤더 직접 파싱 시 스푸핑 가능)
      */
     private getClientIp(req: Record<string, any>): string {
-        const forwarded = req.headers['x-forwarded-for']
-        if (forwarded) {
-            // X-Forwarded-For: client, proxy1, proxy2 형태에서 첫 번째(실제 클라이언트) IP 추출
-            return forwarded.split(',')[0].trim()
-        }
-        return req.ips?.length > 0 ? req.ips[0] : req.ip
+        return req.ip ?? req.socket?.remoteAddress ?? 'unknown'
     }
 
     /**

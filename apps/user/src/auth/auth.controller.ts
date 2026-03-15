@@ -67,8 +67,10 @@ export class AuthController {
     @Delete('signout')
     async signout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
         const refreshToken = this.extractRefreshToken(req)
-        this.removeRefreshToken(res)
+        // 서버 측 토큰 무효화가 성공한 후 쿠키 제거
+        // 순서를 바꾸면 서버 삭제 실패 시에도 클라이언트 쿠키가 소멸되어 재시도 불가
         await this.service.signout(refreshToken)
+        this.removeRefreshToken(res)
     }
 
     @ApiOperation({
